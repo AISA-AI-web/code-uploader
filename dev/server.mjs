@@ -87,8 +87,10 @@ function serveStatic(req, res, pathname) {
   if (rel.endsWith('/')) rel += 'index.html';
   const file = path.normalize(path.join(ROOT, rel));
   if (!file.startsWith(ROOT + path.sep) || rel.includes('\0')) return send(res, 403, 'Forbidden');
-  if (rel === '/assets/js/config.js' && !DEMO) {
-    const src = fs.readFileSync(file, 'utf8').replace("apiUrl: '',", "apiUrl: '/api', devSignIn: true,");
+  if (rel === '/assets/js/config.js') {
+    // Point the site at the local mock backend (or at no backend in --demo), never the real one.
+    const local = DEMO ? "apiUrl: ''," : "apiUrl: '/api', devSignIn: true,";
+    const src = fs.readFileSync(file, 'utf8').replace(/apiUrl: '[^']*',/, local);
     return send(res, 200, src, TYPES['.js']);
   }
   fs.stat(file, (err, stat) => {
