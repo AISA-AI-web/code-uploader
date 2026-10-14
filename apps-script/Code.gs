@@ -2,19 +2,24 @@
  * AISA Activity Hub — Google Apps Script backend
  * ------------------------------------------------
  * Stores each activity's details in a Google Sheet ("Activities" tab) and its HTML in a private
- * Google Drive folder. Teachers sign in with Google and must be listed on the "Teachers" tab to
- * create activities or browse the library. Students can open a single activity by its link
- * without signing in.
+ * Google Drive folder. Students open a single activity by its link without signing in. Teachers
+ * on the "Teachers" tab can create activities and browse the library.
+ *
+ * Teacher sign-in uses Google's own school single sign-on — no Cloud Console setup. The same
+ * script is deployed twice (apps-script/deploy.mjs does both; see README.md):
+ *   • Public   — Who has access: Anyone. Serves activities and the website's API.
+ *   • Teachers — Who has access: Anyone within the school. Google signs the teacher in, this
+ *                script reads their email, checks the Teachers tab and sends them back to the
+ *                website with a signed session.
  *
  * Setup (full steps in README.md):
- *   1. Paste this file and appsscript.json into a new Apps Script project.
+ *   1. Put this file and appsscript.json in an Apps Script project owned by a school account.
  *   2. Run setup() once and approve the permissions.
- *   3. Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone).
- *   4. Add GOOGLE_CLIENT_ID under Project Settings → Script properties.
+ *   3. Run `node apps-script/deploy.mjs` to create both deployments.
  *
  * Script properties
- *   GOOGLE_CLIENT_ID   OAuth client ID for "Sign in with Google" (turns teacher sign-in on)
  *   SCHOOL_DOMAIN      Google Workspace domain teachers sign in with (default aisa.sch.ae; "any" turns the check off)
+ *   SITE_URL           The website's address; sign-in only ever returns there (default https://aisa-ai-web.github.io/code-uploader/)
  *   OPEN_MODE          "true" lets anyone create and browse without signing in (testing only)
  *   SESSION_DAYS       How many days a teacher stays signed in (default 7)
  *   ANTHROPIC_API_KEY  Optional: AI suggestions with Claude
@@ -39,6 +44,8 @@ const SETTINGS = {
   CODE_CACHE_SECONDS: 21600,
   CACHE_CHUNK_CHARS: 30000,
   SCHOOL_DOMAIN: 'aisa.sch.ae',
+  SITE_URL: 'https://aisa-ai-web.github.io/code-uploader/',
+  APP_NAME: 'AISA Activity Hub',
 };
 
 // Keep in sync with assets/js/taxonomy.js (tests/taxonomy-sync.test.js checks this).
@@ -59,6 +66,7 @@ const NOT_FOUND_MESSAGE = 'We couldn’t find that activity. It may have been re
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  if (p.action === 'signin') return signInPage_(p);
   return respond_(function () {
     if (p.action === 'config') return getConfig_();
     if (p.action === 'get') return getActivity_(p);
@@ -71,7 +79,6 @@ function doPost(e) {
     const body = parseBody_(e);
     switch (String(body.action || '')) {
       case 'config': return getConfig_();
-      case 'login': return login_(body);
       case 'get': return getActivity_(body);
       case 'list': return listActivities_(body);
       case 'create': return createActivity_(body);
@@ -137,7 +144,7 @@ function setup() {
     'Activity Hub is set up.',
     'Spreadsheet: ' + ss.getUrl(),
     'Activity files folder: ' + folder.getUrl(),
-    'Next: add teacher emails to the "Teachers" tab, deploy as a web app, and set GOOGLE_CLIENT_ID (see README).',
+    'Next: add teacher emails to the "Teachers" tab, then deploy with `node apps-script/deploy.mjs` (see README).',
   ].join('\n');
   console.log(message);
   return message;
@@ -158,10 +165,7 @@ function props_() {
 }
 
 function authMode_() {
-  const p = props_();
-  if (p.getProperty('GOOGLE_CLIENT_ID')) return 'google';
-  if (String(p.getProperty('OPEN_MODE') || '').toLowerCase() === 'true') return 'open';
-  return 'unconfigured';
+  return String(props_().getProperty('OPEN_MODE') || '').toLowerCase() === 'true' ? 'open' : 'sso';
 }
 
 /** The Google Workspace domain teachers must sign in with, or '' when any domain is accepted. */
@@ -178,8 +182,7 @@ function inSchoolDomain_(email) {
 function getConfig_() {
   const mode = authMode_();
   return {
-    auth: mode === 'open' ? 'open' : 'google',
-    googleClientId: props_().getProperty('GOOGLE_CLIENT_ID') || '',
+    auth: mode,
     schoolDomain: schoolDomain_(),
     ai: !!aiSettings_(),
     maxCodeBytes: SETTINGS.MAX_CODE_BYTES,
@@ -187,17 +190,20 @@ function getConfig_() {
   };
 }
 
-function login_(body) {
-  if (authMode_() !== 'google') {
-    throw clientError_('Teacher sign-in isn’t set up yet. An administrator needs to add GOOGLE_CLIENT_ID in the Apps Script properties.', 'AUTH_NOT_CONFIGURED');
-  }
-  const claims = verifyGoogleIdToken_(String(body.idToken || ''));
-  const email = String(claims.email).toLowerCase();
+function siteUrl_() {
+  const url = String(props_().getProperty('SITE_URL') || SETTINGS.SITE_URL).trim();
+  return /\/$/.test(url) ? url : url + '/';
+}
+
+/** Creates a session for a signed-in Google account, or throws if it may not use the hub. */
+function issueSession_(email) {
+  email = String(email || '').trim().toLowerCase();
   const domain = schoolDomain_();
-  // "hd" is only present for Google Workspace accounts, so a personal account that merely uses a
-  // school-looking address can't get in.
-  if (domain && (!inSchoolDomain_(email) || String(claims.hd || '').toLowerCase() !== domain)) {
-    throw clientError_('Please sign in with your @' + domain + ' school account (you signed in as ' + email + ').', 'WRONG_DOMAIN');
+  if (!email) {
+    throw clientError_('We couldn’t tell which Google account you’re using. Sign in to Google with your ' + (domain ? '@' + domain + ' ' : '') + 'school account, then try again.', 'NO_IDENTITY');
+  }
+  if (!inSchoolDomain_(email)) {
+    throw clientError_('Please sign in with your @' + domain + ' school account (you’re signed in as ' + email + ').', 'WRONG_DOMAIN');
   }
   const teacher = findTeacher_(email);
   if (!teacher) {
@@ -205,31 +211,67 @@ function login_(body) {
   }
   const days = Math.min(90, Math.max(1, Number(props_().getProperty('SESSION_DAYS')) || 7));
   const expires = Date.now() + days * 86400000;
+  const fallbackName = email.split('@')[0].split(/[._-]+/).filter(Boolean)
+    .map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
   return {
-    session: {
-      token: signSession_({ e: email, x: expires }),
-      email: email,
-      name: teacher.name || claims.name || '',
-      picture: claims.picture || '',
-      role: teacher.role,
-      expiresAt: new Date(expires).toISOString(),
-    },
+    token: signSession_({ e: email, x: expires }),
+    email: email,
+    name: teacher.name || fallbackName,
+    role: teacher.role,
+    expiresAt: new Date(expires).toISOString(),
   };
 }
 
-/** Checks a Google ID token with Google and returns its claims. */
-function verifyGoogleIdToken_(idToken) {
-  if (!idToken || idToken.length > 4096) throw clientError_('Sign-in failed. Please try again.', 'BAD_TOKEN');
-  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
-  if (res.getResponseCode() !== 200) throw clientError_('Google couldn’t confirm your sign-in. Please try again.', 'BAD_TOKEN');
-  const c = JSON.parse(res.getContentText());
-  const ok = c.aud === props_().getProperty('GOOGLE_CLIENT_ID') &&
-    (c.iss === 'accounts.google.com' || c.iss === 'https://accounts.google.com') &&
-    String(c.email_verified) === 'true' &&
-    Number(c.exp) * 1000 > Date.now() &&
-    !!c.email;
-  if (!ok) throw clientError_('Google couldn’t confirm your sign-in. Please try again.', 'BAD_TOKEN');
-  return c;
+/**
+ * Teacher sign-in page (?action=signin&return=<page>). On the "Teachers" deployment, Google has
+ * already signed the visitor in with their school account, so Session.getActiveUser() gives their
+ * email. The result goes back to the website in the URL fragment, which is never sent to a server.
+ */
+function signInPage_(p) {
+  const site = siteUrl_();
+  const requested = String(p['return'] || '').split('#')[0];
+  const safe = requested.indexOf(site) === 0 && !/\.\.|\\|@/.test(requested.slice(site.length));
+  const back = safe ? requested : site + 'library.html'; // never hand a session to another site
+
+  let email = '';
+  try { email = Session.getActiveUser().getEmail(); } catch (err) { email = ''; }
+  let session = null;
+  let failure = null;
+  try {
+    session = issueSession_(email);
+  } catch (err) {
+    if (!err.clientCode) throw err;
+    failure = err;
+  }
+  const target = back + '#' + (session
+    ? 'hub-session=' + Utilities.base64EncodeWebSafe(JSON.stringify(session), Utilities.Charset.UTF_8)
+    : 'hub-error=' + encodeURIComponent(failure.clientCode) + '&hub-message=' + encodeURIComponent(failure.message));
+
+  const html = [
+    '<!DOCTYPE html><html><head><base target="_top"><style>',
+    'body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:"DM Sans",system-ui,sans-serif;color:#1A1A1A;background:#F2EFFA;padding:16px;box-sizing:border-box}',
+    '.card{background:#fff;border:1px solid #C8BEE8;border-radius:14px;padding:32px 28px;max-width:440px;text-align:center;box-shadow:0 4px 16px rgba(33,7,108,.08)}',
+    '.mark{display:inline-block;background:#21076C;color:#D8B664;font-weight:700;letter-spacing:.06em;padding:6px 12px;border-radius:8px;margin-bottom:16px}',
+    'h1{color:#21076C;font-size:22px;margin:0 0 8px}p{color:#555;line-height:1.5;margin:0 0 20px}',
+    '.btn{display:inline-block;background:' + (session ? '#D8B664;color:#21076C' : '#21076C;color:#fff') + ';font-weight:700;text-decoration:none;padding:12px 22px;border-radius:8px}',
+    '</style></head><body><div class="card"><div class="mark">AISA</div>',
+    session
+      ? '<h1>You’re signed in</h1><p>Signed in as <strong>' + escapeHtml_(session.email) + '</strong>. Taking you to ' + escapeHtml_(SETTINGS.APP_NAME) + '…</p>'
+      : '<h1>We can’t sign you in</h1><p>' + escapeHtml_(failure.message) + '</p>',
+    '<a class="btn" id="go" href="' + escapeHtml_(target) + '" target="_top">' + (session ? 'Continue to Activity Hub' : 'Back to Activity Hub') + '</a>',
+    '</div>',
+    session ? '<script>try{window.top.location.replace(' + JSON.stringify(target).replace(/</g, '\\u003c') + ')}catch(e){}</script>' : '',
+    '</body></html>',
+  ].join('');
+  return HtmlService.createHtmlOutput(html)
+    .setTitle(SETTINGS.APP_NAME + ' – sign in')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function escapeHtml_(value) {
+  return String(value).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
 }
 
 function sessionSecret_() {
@@ -277,9 +319,6 @@ function safeEqual_(a, b) {
 function requireTeacher_(body) {
   const mode = authMode_();
   if (mode === 'open') return { email: '', name: '', role: 'admin', open: true };
-  if (mode === 'unconfigured') {
-    throw clientError_('Teacher sign-in isn’t set up yet. An administrator needs to add GOOGLE_CLIENT_ID in the Apps Script properties.', 'AUTH_NOT_CONFIGURED');
-  }
   const s = readSession_(body && body.session);
   if (!s) throw clientError_('Please sign in with your school Google account to continue.', 'AUTH_REQUIRED');
   if (s.expired) throw clientError_('Your sign-in has expired. Please sign in again.', 'SESSION_EXPIRED');

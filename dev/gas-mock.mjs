@@ -137,6 +137,7 @@ class Sheet {
 
 export function createGas({ fetchHandler = null, props: initialProps = {}, owner = 'owner@aisa.test', log = () => {} } = {}) {
   const props = new Map(Object.entries(initialProps));
+  let activeUser = ''; // the visitor Google has signed in (only known on the "Teachers" deployment)
   const cache = new Map();
   const files = new Map();
   const folders = new Map();
@@ -230,6 +231,17 @@ export function createGas({ fetchHandler = null, props: initialProps = {}, owner
     LockService: {
       getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {}, hasLock: () => true }),
     },
+    HtmlService: {
+      XFrameOptionsMode: { ALLOWALL: 'ALLOWALL', DEFAULT: 'DEFAULT' },
+      createHtmlOutput: (html) => ({
+        html: String(html),
+        title: '',
+        setTitle(t) { this.title = t; return this; },
+        addMetaTag() { return this; },
+        setXFrameOptionsMode() { return this; },
+        getContent() { return this.html; },
+      }),
+    },
     ContentService: {
       MimeType: { JSON: 'application/json' },
       createTextOutput: (content) => ({ content, mime: 'text/plain', setMimeType(m) { this.mime = m; return this; }, getContent() { return this.content; } }),
@@ -251,7 +263,10 @@ export function createGas({ fetchHandler = null, props: initialProps = {}, owner
         return { getResponseCode: () => res.status ?? 200, getContentText: () => (typeof res.body === 'string' ? res.body : JSON.stringify(res.body)) };
       },
     },
-    Session: { getEffectiveUser: () => ({ getEmail: () => owner }) },
+    Session: {
+      getEffectiveUser: () => ({ getEmail: () => owner }),
+      getActiveUser: () => ({ getEmail: () => activeUser }),
+    },
   };
 
   const context = vm.createContext(globals);
@@ -272,6 +287,30 @@ export function createGas({ fetchHandler = null, props: initialProps = {}, owner
       freshExecution();
       return JSON.parse(context.doGet({ parameter }).getContent());
     },
+    /** The raw output of doGet — e.g. the HTML of the sign-in page. */
+    doGetRaw(parameter = {}) {
+      freshExecution();
+      return context.doGet({ parameter });
+    },
+    /** Who Google has signed in (what Session.getActiveUser() returns). */
+    setActiveUser(email) { activeUser = email || ''; },
+    /**
+     * Signs in through the real sign-in page as `email` and returns what it hands the website:
+     * { session, target } on success or { code, message, target } on failure.
+     */
+    signIn(email, returnUrl) {
+      activeUser = email || '';
+      const html = this.doGetRaw({ action: 'signin', return: returnUrl }).getContent();
+      activeUser = '';
+      const href = (html.match(/id="go" href="([^"]*)"/) || [])[1] || '';
+      const target = href.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      const params = new URLSearchParams(target.split('#')[1] || '');
+      if (params.has('hub-session')) {
+        const b64 = params.get('hub-session').replace(/-/g, '+').replace(/_/g, '/');
+        return { session: JSON.parse(Buffer.from(b64, 'base64').toString('utf8')), target, html };
+      }
+      return { code: params.get('hub-error'), message: params.get('hub-message'), target, html };
+    },
     doPost(body) {
       freshExecution();
       const contents = typeof body === 'string' ? body : JSON.stringify(body);
@@ -284,28 +323,9 @@ export function createGas({ fetchHandler = null, props: initialProps = {}, owner
   };
 }
 
-/** UrlFetchApp handler for local development: fake Google sign-in tokens of the form "dev:email:name". */
+/** UrlFetchApp handler for local development: simulated AI suggestions. */
 export function devFetchHandler({ classifyText } = {}) {
-  return (url, options, { props }) => {
-    if (url.startsWith('https://oauth2.googleapis.com/tokeninfo?id_token=')) {
-      const token = decodeURIComponent(url.split('id_token=')[1]);
-      const [kind, email, name] = token.split(':');
-      if (kind !== 'dev' || !email) return { status: 400, body: { error: 'invalid_token' } };
-      return {
-        status: 200,
-        body: {
-          aud: props.get('GOOGLE_CLIENT_ID'),
-          iss: 'https://accounts.google.com',
-          email,
-          email_verified: 'true',
-          exp: String(Math.floor(Date.now() / 1000) + 3600),
-          name: name || email.split('@')[0],
-          picture: '',
-          // Google adds "hd" (hosted domain) only for Google Workspace accounts.
-          ...(/@(gmail|googlemail)\.com$/i.test(email) ? {} : { hd: email.split('@')[1] }),
-        },
-      };
-    }
+  return (url, options) => {
     if (url === 'https://api.anthropic.com/v1/messages' && classifyText) {
       const req = JSON.parse(options.payload);
       const text = req.messages[0].content.split('<activity>')[1] || '';

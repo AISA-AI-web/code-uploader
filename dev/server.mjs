@@ -7,7 +7,8 @@
 //   npm run dev -- --no-ai      → turn off the simulated AI suggestions
 //   LATENCY=800 npm run dev     → add a delay to API responses, like a real Apps Script
 //
-// Sign in with any email on the Teachers list below (e.g. teacher@aisa.test).
+// Sign in as any email on the Teachers list below (e.g. teacher@aisa.test) on the stand-in for
+// Google's school sign-in.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,8 +40,8 @@ const gas = createGas({
   fetchHandler: devFetchHandler({ classifyText: suggestFromText }),
   log: console.log,
   props: {
-    GOOGLE_CLIENT_ID: 'dev-client-id.apps.googleusercontent.com',
     SCHOOL_DOMAIN: 'aisa.test',
+    SITE_URL: `http://localhost:${PORT}/`,
     ...(args.has('--no-ai') ? {} : { ANTHROPIC_API_KEY: 'dev-key' }),
   },
 });
@@ -52,8 +53,8 @@ function seed() {
   gas.run('clearCaches');
   if (args.has('--empty')) return;
   const sessions = {};
-  const sessionFor = (email, name) => {
-    if (!sessions[email]) sessions[email] = gas.doPost({ action: 'login', idToken: `dev:${email}:${name}` }).session.token;
+  const sessionFor = (email) => {
+    if (!sessions[email]) sessions[email] = gas.signIn(email, `http://localhost:${PORT}/library.html`).session.token;
     return sessions[email];
   };
   const samples = fs.readdirSync(path.join(ROOT, 'dev', 'samples')).filter((f) => f.endsWith('.html')).sort();
@@ -61,7 +62,7 @@ function seed() {
     const code = fs.readFileSync(path.join(ROOT, 'dev', 'samples', file), 'utf8');
     const meta = classify(code);
     const [email, name] = i % 2 ? TEACHERS[1] : TEACHERS[0];
-    const res = gas.doPost({ action: 'create', session: sessionFor(email, name), ...meta, author: name, code });
+    const res = gas.doPost({ action: 'create', session: sessionFor(email), ...meta, author: name, code });
     if (!res.ok) console.error('Seed failed for', file, res.error);
   });
 }
@@ -90,8 +91,9 @@ function serveStatic(req, res, pathname) {
   if (!file.startsWith(ROOT + path.sep) || rel.includes('\0')) return send(res, 403, 'Forbidden');
   if (rel === '/assets/js/config.js') {
     // Point the site at the local mock backend (or at no backend in --demo), never the real one.
-    const local = DEMO ? "apiUrl: ''," : "apiUrl: '/api', devSignIn: true,";
-    const src = fs.readFileSync(file, 'utf8').replace(/apiUrl: '[^']*',/, local);
+    const src = fs.readFileSync(file, 'utf8')
+      .replace(/apiUrl: '[^']*',/, DEMO ? "apiUrl: ''," : "apiUrl: '/api',")
+      .replace(/signInUrl: '[^']*',/, DEMO ? "signInUrl: ''," : "signInUrl: '/signin',");
     return send(res, 200, src, TYPES['.js']);
   }
   fs.stat(file, (err, stat) => {
@@ -126,11 +128,33 @@ function handleApi(req, res, url) {
   req.on('end', () => respond(() => gas.doPost(body)));
 }
 
+// Stands in for the "Teachers" deployment. In the real thing Google signs the teacher in with their
+// school account before Code.gs runs; here you pick which account to pretend to be.
+function handleSignIn(req, res, url) {
+  const as = url.searchParams.get('as');
+  if (as === null) {
+    const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    return send(res, 200, `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dev sign-in</title>
+<style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f4f4f4}
+form{background:#fff;padding:28px;border-radius:12px;box-shadow:0 2px 12px #0002;display:grid;gap:12px;width:min(360px,90vw)}
+input,button{font:inherit;padding:10px;border-radius:8px;border:1px solid #bbb}button{background:#1a73e8;color:#fff;border:0;font-weight:600}</style></head>
+<body><form method="get" action="/signin"><strong>Development sign-in</strong>
+<span>Stands in for Google’s school sign-in. Try ${esc(TEACHERS.map((t) => t[0]).join(', '))} or any other address.</span>
+<input type="hidden" name="action" value="signin"><input type="hidden" name="return" value="${esc(url.searchParams.get('return') || '')}">
+<input id="dev-email" name="as" type="email" value="teacher@aisa.test" aria-label="Email"><button id="dev-continue">Continue</button></form></body></html>`, TYPES['.html']);
+  }
+  gas.setActiveUser(as);
+  const page = gas.doGetRaw(Object.fromEntries(url.searchParams)).getContent();
+  gas.setActiveUser('');
+  send(res, 200, page, TYPES['.html']);
+}
+
 if (!DEMO) seed();
 
 http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (url.pathname === '/api') return handleApi(req, res, url);
+  if (url.pathname === '/signin' && !DEMO) return handleSignIn(req, res, url);
   serveStatic(req, res, url.pathname);
 }).listen(PORT, () => {
   console.log(`Activity Hub dev server → http://localhost:${PORT}/`);

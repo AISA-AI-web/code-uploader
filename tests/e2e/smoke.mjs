@@ -22,27 +22,36 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
 
-// --- Library gate + sign-in ---
+// --- Library: single sign-on ---
+// Opening the library without a session goes straight to the school sign-in (the dev server's
+// stand-in for Google). A student account is turned away and sent back to the hub.
+const devSignIn = async (p, email) => {
+  await p.waitForSelector('#dev-email');
+  await p.fill('#dev-email', email);
+  await p.click('#dev-continue');
+};
 await page.goto(`${BASE}/library.html`);
-await page.waitForSelector('.gate');
-check('library shows teacher gate before sign-in', await page.isVisible('text=Teachers only'));
+await devSignIn(page, 'student@aisa.test');
+await page.waitForSelector('h1:has-text("We can’t sign you in")');
+check('school student account refused on the sign-in page', /isn’t on the teacher list/.test(await page.textContent('body')));
+await page.screenshot({ path: `${OUT}/01-signin-refused.png` });
+await page.click('#go');
+await page.waitForSelector('.gate-status.is-error');
+check('back on the hub, the refusal is shown and there is no redirect loop', /isn’t on the teacher list/.test(await page.textContent('.gate-status')) && page.url().endsWith('/library.html'));
+check('sign-in card names the school domain', /@aisa\.test Google account/.test(await page.textContent('.gate-text')));
 await page.screenshot({ path: `${OUT}/01-gate.png` });
 
-// Student account is refused
-await page.fill('.dev-signin input[type=email]', 'student@aisa.test');
-await page.click('text=Dev sign-in');
-await page.waitForSelector('.gate-status.is-error');
-check('school student account refused', /isn’t on the teacher list/.test(await page.textContent('.gate-status')), await page.textContent('.gate-status'));
+await page.click('.gate-button button');
+await devSignIn(page, 'someone@gmail.com');
+await page.waitForSelector('h1:has-text("We can’t sign you in")');
+check('personal Google account refused', /@aisa\.test school account/.test(await page.textContent('body')));
 
-await page.fill('.dev-signin input[type=email]', 'someone@gmail.com');
-await page.click('text=Dev sign-in');
-await page.waitForFunction(() => /school account/.test(document.querySelector('.gate-status')?.textContent || ''));
-check('personal Google account refused', /@aisa\.test school account/.test(await page.textContent('.gate-status')), await page.textContent('.gate-status'));
-check('sign-in card names the school domain', /@aisa\.test Google account/.test(await page.textContent('.gate-text')));
-
-await page.fill('.dev-signin input[type=email]', 'teacher@aisa.test');
-await page.click('text=Dev sign-in');
+await page.click('#go');
+await page.waitForSelector('.gate-button button');
+await page.click('.gate-button button');
+await devSignIn(page, 'teacher@aisa.test');
 await page.waitForSelector('.activity-card');
+check('teacher lands back in the library, signed in', page.url().endsWith('/library.html') && !page.url().includes('#'));
 const cards = await page.$$eval('.activity-card', (els) => els.length);
 check('library lists seeded activities', cards === 5, `cards=${cards}`);
 check('header shows teacher name', await page.isVisible('.user-chip'));
@@ -184,8 +193,8 @@ check('student sees only download/print/fullscreen', JSON.stringify(studentButto
 check('student brand is not a library link', (await sp.getAttribute('#brand', 'href')) === null);
 await sp.screenshot({ path: `${OUT}/06-viewer-student-phone.png` });
 await sp.goto(`${BASE}/library.html`);
-await sp.waitForSelector('.gate');
-check('student blocked from library', await sp.isVisible('text=Teachers only'));
+await sp.waitForSelector('#dev-email');
+check('student opening the library is sent to school sign-in', sp.url().includes('/signin?action=signin'));
 await sp.goto(`${BASE}/view.html?id=doesnotexist`);
 await sp.waitForSelector('.viewer-status h2');
 check('missing activity message', /couldn’t find/.test(await sp.textContent('.viewer-status h2')));
@@ -224,8 +233,9 @@ check('deleted link shows not found', /couldn’t find/.test(await sp.textConten
 
 // Sign out clears session
 await page.click('.user-chip button');
-await page.waitForSelector('.gate');
-check('sign out returns to gate', await page.isVisible('text=Teachers only'));
+await page.waitForSelector('.gate-button button');
+await page.waitForTimeout(500);
+check('sign out returns to the gate without signing straight back in', page.url().endsWith('/library.html') && await page.isVisible('text=Teachers only'));
 
 const relevantErrors = errors.filter((e) => !/fonts\.g|ERR_|Failed to load resource|net::/.test(e));
 check('no page errors', relevantErrors.length === 0, JSON.stringify(relevantErrors.slice(0, 5)));

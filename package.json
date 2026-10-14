@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "node dev/server.mjs",
-    "test": "node --test \"tests/*.test.js\""
+    "test": "node --test \"tests/*.test.js\"",
+    "deploy:backend": "node apps-script/deploy.mjs"
   },
   "engines": {
     "node": ">=20"

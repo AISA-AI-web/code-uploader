@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGas, devFetchHandler } from '../dev/gas-mock.mjs';
 
-const CLIENT_ID = 'test-client.apps.googleusercontent.com';
+const SITE = 'https://site.test/hub/';
 
 function setup({ props = {}, fetchHandler } = {}) {
-  const gas = createGas({ fetchHandler: fetchHandler || devFetchHandler(), props: { GOOGLE_CLIENT_ID: CLIENT_ID, SCHOOL_DOMAIN: 'aisa.test', ...props } });
+  const gas = createGas({ fetchHandler: fetchHandler || devFetchHandler(), props: { SCHOOL_DOMAIN: 'aisa.test', SITE_URL: SITE, ...props } });
   gas.run('setup');
   const teachers = gas.sheet('Teachers');
   teachers.appendRow(['Teacher@AISA.test', 'Ms. Rivera', 'teacher']);
@@ -14,9 +14,10 @@ function setup({ props = {}, fetchHandler } = {}) {
   teachers.appendRow(['teacher.home@gmail.com', 'Ms. Rivera (personal)', 'teacher']);
   teachers.appendRow(['head@aisa.test', 'Dr. Head', 'Admin']);
   gas.run('clearCaches');
+  // Signs in through the real sign-in page, as if Google had signed `email` in.
   const login = (email) => {
-    const res = gas.doPost({ action: 'login', idToken: `dev:${email}:Name` });
-    return res.ok ? res.session.token : res;
+    const res = gas.signIn(email, `${SITE}library.html`);
+    return res.session ? res.session.token : res;
   };
   return { gas, login };
 }
@@ -37,18 +38,49 @@ test('only rostered teachers at the school domain can sign in', () => {
   assert.equal(login('student@aisa.test').code, 'NOT_TEACHER', 'school accounts not on the Teachers tab are refused');
   assert.equal(login('teacher.home@gmail.com').code, 'WRONG_DOMAIN', 'personal accounts are refused even if listed');
   assert.equal(login('teacher@other-school.test').code, 'WRONG_DOMAIN');
-  assert.equal(gas.doPost({ action: 'login', idToken: 'forged' }).code, 'BAD_TOKEN');
-  assert.equal(gas.doPost({ action: 'config' }).schoolDomain, 'aisa.test');
+  assert.equal(login('').code, 'NO_IDENTITY', 'the public deployment never knows who the visitor is');
+  const config = gas.doPost({ action: 'config' });
+  assert.equal(config.schoolDomain, 'aisa.test');
+  assert.equal(config.auth, 'sso');
 });
 
-test('a school-looking address without a Workspace account is refused', () => {
-  const handler = devFetchHandler();
-  const { login } = setup({ fetchHandler: (url, opts, ctx) => { const r = handler(url, opts, ctx); delete r.body.hd; return r; } });
-  assert.equal(login('teacher@aisa.test').code, 'WRONG_DOMAIN');
+test('the sign-in page returns a working session to the page the teacher came from', () => {
+  const { gas } = setup();
+  const res = gas.signIn('coach@aisa.test', `${SITE}index.html?remix=abc123`);
+  assert.ok(res.target.startsWith(`${SITE}index.html?remix=abc123#hub-session=`));
+  assert.equal(res.session.email, 'coach@aisa.test');
+  assert.equal(res.session.name, 'Mr. Haddad');
+  assert.equal(res.session.role, 'teacher');
+  assert.ok(Date.parse(res.session.expiresAt) > Date.now());
+  assert.equal(gas.doPost({ action: 'list', session: res.session.token }).ok, true);
+  assert.match(res.html, /window\.top\.location\.replace/, 'goes back automatically');
+  assert.match(res.html, /target="_top"/, 'with a button as a fallback');
+});
+
+test('sign-in never sends a session to another site', () => {
+  const { gas } = setup();
+  for (const evil of ['https://evil.test/steal', 'https://site.test/other/', `${SITE}../other/`, `${SITE}x@evil.test`, 'javascript:alert(1)', '']) {
+    const res = gas.signIn('teacher@aisa.test', evil);
+    assert.ok(res.target.startsWith(`${SITE}library.html#hub-session=`), `${evil} → ${res.target.slice(0, 60)}`);
+  }
+});
+
+test('the sign-in page escapes what it shows', () => {
+  const { gas } = setup({ props: { SCHOOL_DOMAIN: 'any' } });
+  const res = gas.signIn('"><script>alert(1)</script>@x.test', `${SITE}library.html`);
+  assert.equal(res.code, 'NOT_TEACHER');
+  assert.ok(!res.html.includes('<script>alert(1)'));
+});
+
+test('names default to the email when the Teachers tab has none', () => {
+  const { gas } = setup();
+  gas.sheet('Teachers').appendRow(['jane.van-dyke@aisa.test', '', 'teacher']);
+  gas.run('clearCaches');
+  assert.equal(gas.signIn('jane.van-dyke@aisa.test', `${SITE}library.html`).session.name, 'Jane Van Dyke');
 });
 
 test('the school domain defaults to aisa.sch.ae', () => {
-  const gas = createGas({ props: { GOOGLE_CLIENT_ID: CLIENT_ID } });
+  const gas = createGas();
   gas.run('setup');
   assert.equal(gas.doPost({ action: 'config' }).schoolDomain, 'aisa.sch.ae');
 });
@@ -68,12 +100,6 @@ test('sessions from outside the school domain stop working if the domain is lock
   assert.equal(gas.doPost({ action: 'list', session: personal }).ok, true);
   gas.props.set('SCHOOL_DOMAIN', 'aisa.test');
   assert.equal(gas.doPost({ action: 'list', session: personal }).code, 'NOT_TEACHER');
-});
-
-test('tokens for another app are rejected', () => {
-  const handler = devFetchHandler();
-  const { gas } = setup({ fetchHandler: (url, opts, ctx) => { const r = handler(url, opts, ctx); if (r.body.aud) r.body.aud = 'someone-else'; return r; } });
-  assert.equal(gas.doPost({ action: 'login', idToken: 'dev:teacher@aisa.test:T' }).code, 'BAD_TOKEN');
 });
 
 test('students can open an activity by link but cannot list, create or classify', () => {
@@ -198,7 +224,7 @@ test('many activities: rows grow past the sheet size and the list stays complete
   assert.equal(gas.doPost({ action: 'list', session: t }).activities.length, 5);
 });
 
-test('open mode lets anyone in; unconfigured mode blocks teacher actions', () => {
+test('open mode lets anyone in; otherwise teacher actions need a sign-in', () => {
   const open = createGas({ props: { OPEN_MODE: 'true' } });
   open.run('setup');
   assert.equal(open.doPost({ action: 'config' }).auth, 'open');
@@ -207,10 +233,8 @@ test('open mode lets anyone in; unconfigured mode blocks teacher actions', () =>
 
   const bare = createGas();
   bare.run('setup');
-  const cfg = bare.doPost({ action: 'config' });
-  assert.equal(cfg.auth, 'google');
-  assert.equal(cfg.googleClientId, '');
-  assert.equal(bare.doPost({ action: 'list' }).code, 'AUTH_NOT_CONFIGURED');
+  assert.equal(bare.doPost({ action: 'config' }).auth, 'sso');
+  assert.equal(bare.doPost({ action: 'list' }).code, 'AUTH_REQUIRED');
 });
 
 test('AI suggestions call Claude with structured output and clean the answer', () => {

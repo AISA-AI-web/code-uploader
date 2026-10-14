@@ -112,7 +112,6 @@ export const api = {
     if (!configPromise) configPromise = call('config').catch((e) => { configPromise = null; throw e; });
     return configPromise;
   },
-  login(idToken) { return call('login', { idToken }); },
   list() { return call('list'); },
   get(id) { return call('get', { id }); },
   create(activity) { return call('create', activity, { timeout: 120000 }); },
