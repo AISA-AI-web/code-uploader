@@ -9,6 +9,7 @@ import { h, iconEl } from './ui.js';
 
 const ATTEMPT_KEY = 'hub-signin-attempt'; // stops a redirect loop if a sign-in comes back empty
 const SIGNED_OUT_KEY = 'hub-signed-out'; // after "Sign out", don't sign straight back in
+let schoolDomain = '';
 
 function store(kind) {
   try { return window[kind]; } catch { return null; }
@@ -29,13 +30,21 @@ export function signOut() {
   window.location.reload();
 }
 
+// The /a/macros/<domain>/ form of a web app address makes Google use the school account. With the
+// plain form, a browser that's also signed in to a personal Google account (as its default) gets
+// "Sorry, unable to open the file at this time".
+function signInAddress() {
+  const url = CONFIG.signInUrl;
+  return schoolDomain ? url.replace(/^https:\/\/script\.google\.com\/macros\/s\//, `https://script.google.com/a/macros/${schoolDomain}/s/`) : url;
+}
+
 function startSignIn() {
   try {
     store('sessionStorage')?.setItem(ATTEMPT_KEY, String(Date.now()));
     store('localStorage')?.removeItem(SIGNED_OUT_KEY);
   } catch { /* ignore */ }
   const back = window.location.href.split('#')[0];
-  window.location.assign(`${CONFIG.signInUrl}?action=signin&return=${encodeURIComponent(back)}`);
+  window.location.assign(`${signInAddress()}?action=signin&return=${encodeURIComponent(back)}`);
 }
 
 /** Reads what the sign-in page put after the # and removes it from the address bar. */
@@ -98,6 +107,7 @@ export async function requireTeacher(container) {
   }
 
   const domain = config.schoolDomain || '';
+  schoolDomain = domain;
   if (domain) text.textContent = `Sign in with your @${domain} Google account to create activities and browse the shared library. Only teachers on the school’s list can get in.`;
   status.textContent = '';
   if (!CONFIG.signInUrl) {
