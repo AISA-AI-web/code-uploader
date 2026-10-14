@@ -52,32 +52,43 @@ Why "Anyone"? Students open activities without signing in, and browsers can't se
 
 #### Or do step 2 from the terminal (clasp)
 
-[clasp](https://github.com/google/clasp) is Google's command-line tool for Apps Script. First turn on **Google Apps Script API** at [script.google.com/home/usersettings](https://script.google.com/home/usersettings), then:
+[clasp](https://github.com/google/clasp) is Google's command-line tool for Apps Script. First turn on **Google Apps Script API** at [script.google.com/home/usersettings](https://script.google.com/home/usersettings).
+
+Install clasp and sign in with the school account that will own the data (the sign-in opens in your browser):
 
 ```bash
 npm install -g @google/clasp
-clasp login                                   # opens a browser: sign in with the school account that will own the data
+clasp login
+```
 
+Create the project and upload the backend. `git checkout` puts back our `appsscript.json`, which `clasp create-script` replaces with a blank one:
+
+```bash
 git clone https://github.com/AISA-AI-web/code-uploader.git
 cd code-uploader/apps-script
 clasp create-script --type standalone --title "Activity Hub backend" --rootDir .
-git checkout -- appsscript.json               # clasp may replace the manifest with a blank one; restore ours
-clasp push -f                                 # uploads Code.gs and appsscript.json
-
-clasp open-script                             # in the editor: choose "setup" in the toolbar → Run → approve permissions
-clasp create-deployment -d "v1"               # deploys the web app (Execute as: Me, Access: Anyone, from appsscript.json)
-clasp list-deployments                        # copy the long ID next to "@1 - v1"
+git checkout -- appsscript.json
+clasp push -f
+clasp open-script
 ```
 
-Your Web app URL is `https://script.google.com/macros/s/<that ID>/exec`. Run `setup` in the editor before you deploy; it grants the permissions the web app needs.
-
-To ship a change to `Code.gs` later, keeping the same URL:
+In the editor that opens, choose **setup** in the toolbar, click **Run** and approve the permissions. Then deploy the web app:
 
 ```bash
-cd code-uploader/apps-script
-clasp push -f
-clasp update-deployment <deployment ID> -d "v2"
+clasp create-deployment -d "v1"
+clasp list-deployments
 ```
+
+Copy the long ID on the `@1 - v1` line. Your Web app URL is `https://script.google.com/macros/s/<that ID>/exec`.
+
+To ship a change to `Code.gs` later and keep the same URL, run this from `code-uploader/apps-script`:
+
+```bash
+clasp push -f
+clasp update-deployment <that ID> -d "v2"
+```
+
+Paste these blocks as they are: zsh (the default Mac terminal) doesn't treat `#` as a comment, so don't add notes on the same line. If `npm install` fails with `EACCES … _cacache`, fix your npm cache's permissions with `sudo chown -R $(id -u):$(id -g) ~/.npm` and try again.
 
 ### 3. Connect the website to the backend
 
