@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create an activity · AISA Activity Hub</title>
+  <meta name="description" content="Paste HTML from any AI tool and turn it into a shareable classroom activity with a link, QR code and Google Classroom button.">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script src="assets/vendor/qrcode.js" defer></script>
+  <script type="module" src="assets/js/create.js"></script>
+</head>
+<body>
+  <header class="site-header" data-site-header></header>
+
+  <main id="main" class="page">
+    <div id="gate"></div>
+
+    <div id="app" hidden>
+      <div id="mode-banner"></div>
+
+      <section class="page-hero">
+        <p class="eyebrow eyebrow-gold" id="hero-eyebrow">Create an activity</p>
+        <h1 id="hero-title">Paste your code. Get a link to share.</h1>
+        <p class="lead" id="hero-lead">Works with HTML from ChatGPT, Gemini, Claude, Canva and any other tool. You’ll see a live preview, we’ll suggest the grade level and subject, and you’ll get a link, a QR code and a Google Classroom button.</p>
+      </section>
+
+      <div class="workspace">
+        <section class="card editor-card" aria-labelledby="code-heading">
+          <div class="card-head">
+            <h2 class="card-title" id="code-heading"><span class="step-num">1</span>Paste your code</h2>
+            <div class="card-tools">
+              <button type="button" class="btn btn-ghost" id="paste-btn" data-icon="clipboard"><span class="btn-label">Paste</span></button>
+              <button type="button" class="btn btn-ghost" id="upload-btn" data-icon="upload"><span class="btn-label">Upload file</span></button>
+              <input type="file" id="file-input" accept=".html,.htm,.txt,text/html,text/plain" hidden>
+              <button type="button" class="btn btn-ghost btn-compact" id="clear-btn" data-icon="trash" title="Clear the code" aria-label="Clear the code"><span class="btn-label">Clear</span></button>
+            </div>
+          </div>
+          <div class="editor-wrap" id="editor-wrap">
+            <textarea id="code" class="code-input" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-label="HTML code" aria-describedby="code-stats"></textarea>
+            <div class="editor-empty" id="editor-empty">
+              <div>
+                <strong>Paste your HTML here</strong>
+                Click here and press Ctrl+V (⌘V on a Mac), or drop an .html file.<br>
+                <span class="small">Copied some of the AI’s chat along with the code? That’s fine — we’ll tidy it up.</span>
+              </div>
+            </div>
+          </div>
+          <div class="notices" id="notices" aria-live="polite"></div>
+          <div class="editor-foot">
+            <span id="code-stats">Nothing pasted yet</span>
+            <span>Tip: ask your AI tool for “one self-contained HTML file”.</span>
+          </div>
+        </section>
+
+        <section class="card preview-card" aria-labelledby="preview-heading">
+          <div class="card-head">
+            <h2 class="card-title" id="preview-heading"><span class="step-num">2</span>Check the preview</h2>
+            <div class="card-tools">
+              <div class="device-toggle" role="group" aria-label="Preview size">
+                <button type="button" data-device="desktop" aria-pressed="true" title="Computer" aria-label="Computer size" data-icon="monitor"></button>
+                <button type="button" data-device="tablet" aria-pressed="false" title="Tablet" aria-label="Tablet size" data-icon="tablet"></button>
+                <button type="button" data-device="phone" aria-pressed="false" title="Phone" aria-label="Phone size" data-icon="phone"></button>
+              </div>
+              <button type="button" class="btn btn-ghost btn-compact" id="refresh-btn" data-icon="refresh" title="Restart the preview" aria-label="Restart the preview"><span class="btn-label">Restart</span></button>
+              <button type="button" class="btn btn-ghost btn-compact" id="preview-full-btn" data-icon="fullscreen" title="Full screen preview" aria-label="Full screen preview"><span class="btn-label">Full screen</span></button>
+              <button type="button" class="btn btn-ghost btn-compact" id="download-btn" data-icon="download" title="Download this code as an HTML file" aria-label="Download this code as an HTML file"><span class="btn-label">Download</span></button>
+            </div>
+          </div>
+          <div class="preview-stage" id="preview-stage" data-device="desktop">
+            <div class="preview-empty" id="preview-empty">
+              <div><div class="big" aria-hidden="true">🧩</div>Your activity will appear here,<br>exactly as students will see it.</div>
+            </div>
+          </div>
+          <div class="preview-errors" id="preview-errors" hidden></div>
+        </section>
+      </div>
+
+      <section class="card details-card" aria-labelledby="details-heading">
+        <div class="card-head">
+          <h2 class="card-title" id="details-heading"><span class="step-num">3</span>Describe it for the library</h2>
+        </div>
+        <div class="detect-banner" id="detect-banner" hidden>
+          <span data-icon="sparkle"></span>
+          <div class="grow">
+            <div id="detect-summary"></div>
+            <div class="detect-reasons" id="detect-reasons"></div>
+          </div>
+          <button type="button" class="btn btn-ghost" id="ai-btn" data-icon="sparkle" hidden><span class="btn-label">Check with AI</span></button>
+        </div>
+        <form id="details-form" class="form-grid" novalidate>
+          <div class="field span-4">
+            <label class="field-label" for="f-title">Title <span class="auto-badge" data-badge="title" hidden></span></label>
+            <input class="input" id="f-title" name="title" maxlength="150" required placeholder="e.g. Equivalent Fractions Pizza Quiz">
+            <span class="field-error" id="err-title" hidden></span>
+          </div>
+          <div class="field span-2">
+            <label class="field-label" for="f-type">Activity type <span class="auto-badge" data-badge="activityType" hidden></span></label>
+            <select class="select" id="f-type" name="activityType"></select>
+          </div>
+          <div class="field span-6">
+            <span class="field-label" id="grades-label">Grade level(s) <span class="auto-badge" data-badge="grades" hidden></span></span>
+            <div class="chips" id="grade-chips" role="group" aria-labelledby="grades-label"></div>
+            <span class="field-hint">Choose every grade it suits — teachers browse the library by grade.</span>
+            <span class="field-error" id="err-grades" hidden></span>
+          </div>
+          <div class="field span-3">
+            <label class="field-label" for="f-subject">Subject <span class="auto-badge" data-badge="subject" hidden></span></label>
+            <select class="select" id="f-subject" name="subject"></select>
+          </div>
+          <div class="field span-3">
+            <label class="field-label" for="f-concept">Concept or skill <span class="auto-badge" data-badge="concept" hidden></span></label>
+            <input class="input" id="f-concept" name="concept" maxlength="150" placeholder="e.g. Equivalent fractions">
+          </div>
+          <div class="field span-6">
+            <label class="field-label" for="f-description">Short description <span class="auto-badge" data-badge="description" hidden></span></label>
+            <textarea class="textarea" id="f-description" name="description" maxlength="1000" rows="3" placeholder="What do students do, and what does it practise?"></textarea>
+          </div>
+          <div class="field span-3">
+            <label class="field-label" for="f-tags">Tags <span class="auto-badge" data-badge="tags" hidden></span></label>
+            <input class="input" id="f-tags" name="tags" placeholder="fractions, pizza, review">
+            <span class="field-hint">Separate with commas.</span>
+          </div>
+          <div class="field span-3">
+            <label class="field-label" for="f-author">Shown as</label>
+            <input class="input" id="f-author" name="author" maxlength="80" placeholder="e.g. Ms. Rivera">
+            <span class="field-hint">How your name appears in the library.</span>
+          </div>
+        </form>
+        <div class="publish-bar">
+          <p class="muted small" id="publish-note">Published activities get their own link and are added to the shared library so other teachers can find and reuse them.</p>
+          <button type="submit" form="details-form" class="btn btn-gold btn-lg" id="publish-btn" data-icon="check"><span class="btn-label">Publish &amp; get link</span></button>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

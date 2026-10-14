@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photosynthesis Simulator</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #0f2418; color: #e8ffe8; }
+  header { padding: 1rem 1.5rem; }
+  .wrap { display: grid; grid-template-columns: 320px 1fr; gap: 1rem; padding: 0 1.5rem 1.5rem; }
+  .controls label { display: block; margin: 1rem 0 .3rem; }
+  input[type=range] { width: 100%; }
+  canvas { width: 100%; height: 360px; background: #163a26; border-radius: 12px; }
+  .out { font-size: 1.4rem; margin-top: 1rem; }
+  @media (max-width: 700px) { .wrap { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🌱 Photosynthesis Simulator</h1>
+    <p>Use the sliders to change light intensity, carbon dioxide and water. Watch how the rate of photosynthesis and the oxygen bubbles change. Which factor limits glucose production?</p>
+  </header>
+  <div class="wrap">
+    <div class="controls">
+      <label for="light">Light intensity</label><input type="range" id="light" min="0" max="100" value="60">
+      <label for="co2">Carbon dioxide (CO₂)</label><input type="range" id="co2" min="0" max="100" value="50">
+      <label for="water">Water</label><input type="range" id="water" min="0" max="100" value="80">
+      <div class="out">Rate: <span id="rate">0</span> bubbles/min</div>
+      <p>Chlorophyll in the leaf captures light energy to turn carbon dioxide and water into glucose and oxygen.</p>
+    </div>
+    <canvas id="leaf" width="800" height="360"></canvas>
+  </div>
+<script>
+  const ctx = document.getElementById('leaf').getContext('2d');
+  const bubbles = [];
+  function rate() {
+    const l = +document.getElementById('light').value, c = +document.getElementById('co2').value, w = +document.getElementById('water').value;
+    return Math.round(Math.min(l, c, w) * 0.6);
+  }
+  function frame() {
+    const r = rate();
+    document.getElementById('rate').textContent = r;
+    if (Math.random() < r / 60) bubbles.push({ x: 380 + Math.random() * 40, y: 300, s: 3 + Math.random() * 6 });
+    ctx.clearRect(0, 0, 800, 360);
+    ctx.fillStyle = '#2f9e44';
+    ctx.beginPath(); ctx.ellipse(400, 320, 120, 40, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(200,240,255,.8)';
+    for (const b of bubbles) { b.y -= 1.5; ctx.beginPath(); ctx.arc(b.x, b.y, b.s, 0, Math.PI * 2); ctx.fill(); }
+    while (bubbles.length && bubbles[0].y < -10) bubbles.shift();
+    requestAnimationFrame(frame);
+  }
+  frame();
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noun, Verb or Adjective? Sorting Game</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f3f0ff; padding: 1.5rem; }
+  h1 { text-align: center; color: #4b2aad; }
+  .word { display: inline-block; font-size: 1.6rem; padding: .6rem 1.2rem; background: #fff; border-radius: 10px; margin: 1rem auto; }
+  .bins { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .bins button { width: 180px; height: 110px; font-size: 1.3rem; border-radius: 16px; border: 0; color: #fff; cursor: pointer; }
+  .noun { background: #e4572e; } .verb { background: #17bebb; } .adj { background: #76b041; }
+  #status { text-align: center; font-size: 1.2rem; min-height: 1.5em; }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+  <h1>Noun, Verb or Adjective?</h1>
+  <p class="center">A noun is a person, place or thing. A verb is an action word. An adjective describes a noun. Sort each word into the right group!</p>
+  <div class="center"><span class="word" id="word"></span></div>
+  <div class="bins">
+    <button class="noun" onclick="sort('noun')">Noun</button>
+    <button class="verb" onclick="sort('verb')">Verb</button>
+    <button class="adj" onclick="sort('adjective')">Adjective</button>
+  </div>
+  <p id="status"></p>
+  <p class="center">Points: <strong id="points">0</strong> · <button onclick="restart()">Play again</button></p>
+<script>
+  const words = [
+    ['dog', 'noun'], ['jump', 'verb'], ['happy', 'adjective'], ['school', 'noun'],
+    ['run', 'verb'], ['tall', 'adjective'], ['teacher', 'noun'], ['swim', 'verb'],
+    ['shiny', 'adjective'], ['apple', 'noun'], ['sing', 'verb'], ['tiny', 'adjective']
+  ];
+  let i = 0, points = 0;
+  function show() { document.getElementById('word').textContent = words[i][0]; }
+  function sort(kind) {
+    const [word, answer] = words[i];
+    if (kind === answer) { points++; document.getElementById('status').textContent = `Correct! "${word}" is a ${answer}.`; }
+    else document.getElementById('status').textContent = `Oops! "${word}" is a ${answer}.`;
+    document.getElementById('points').textContent = points;
+    i = (i + 1) % words.length;
+    show();
+  }
+  function restart() { i = 0; points = 0; document.getElementById('points').textContent = 0; document.getElementById('status').textContent = ''; show(); }
+  show();
+</script>
+</body>
+</html>

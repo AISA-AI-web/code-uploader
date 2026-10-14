@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Activity · AISA Activity Hub</title>
+  <meta name="description" content="An interactive learning activity.">
+  <meta property="og:title" content="AISA Activity Hub">
+  <meta property="og:description" content="An interactive learning activity shared by your teacher.">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script src="assets/vendor/qrcode.js" defer></script>
+  <script type="module" src="assets/js/view.js"></script>
+</head>
+<body class="viewer">
+  <div class="viewer-bar">
+    <a class="viewer-brand" id="brand" aria-label="AISA Activity Hub">AISA</a>
+    <div class="viewer-title">
+      <h1 id="title">Loading…</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="viewer-actions" id="actions"></div>
+  </div>
+  <main class="viewer-stage" id="stage">
+    <div class="viewer-status" id="status">
+      <div><div class="spinner" aria-hidden="true"></div><p>Loading activity…</p></div>
+    </div>
+  </main>
+</body>
+</html>

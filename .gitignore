@@ -1,0 +1,4 @@
+node_modules/
+tests/e2e/screenshots/
+.clasp.json
+.DS_Store

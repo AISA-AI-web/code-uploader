@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activity library · AISA Activity Hub</title>
+  <meta name="description" content="Browse classroom activities shared by teachers, by grade level and subject.">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script src="assets/vendor/qrcode.js" defer></script>
+  <script type="module" src="assets/js/library.js"></script>
+</head>
+<body>
+  <header class="site-header" data-site-header></header>
+
+  <main id="main" class="page">
+    <div id="gate"></div>
+
+    <div id="app" hidden>
+      <div id="mode-banner"></div>
+      <section class="page-hero">
+        <p class="eyebrow eyebrow-gold">Shared library</p>
+        <h1>Find an activity</h1>
+        <p class="lead" id="lead">Activities made and shared by your colleagues. Open one, share it with your class, or remix it to make it your own.</p>
+      </section>
+
+      <section class="library-tools" aria-label="Search and filters">
+        <div class="search-row">
+          <div class="search-box">
+            <span data-icon="search"></span>
+            <input class="input" type="search" id="q" placeholder="Search by topic, title, concept, tag or teacher…" aria-label="Search activities">
+          </div>
+          <a class="btn btn-gold" href="index.html" data-icon="plus"><span class="btn-label">Create an activity</span></a>
+        </div>
+        <div class="grade-chips" id="grade-chips" role="group" aria-label="Filter by grade level"></div>
+        <div class="filter-row">
+          <select class="select" id="subject" aria-label="Filter by subject"></select>
+          <select class="select" id="type" aria-label="Filter by activity type"></select>
+          <select class="select" id="sort" aria-label="Sort activities">
+            <option value="new">Newest first</option>
+            <option value="old">Oldest first</option>
+            <option value="title">Title A–Z</option>
+            <option value="grade">Grade (low to high)</option>
+          </select>
+          <button type="button" class="chip" id="mine" aria-pressed="false">My activities</button>
+          <button type="button" class="btn btn-ghost btn-compact" id="reload" data-icon="refresh" title="Refresh" aria-label="Refresh the library"><span class="btn-label">Refresh</span></button>
+        </div>
+      </section>
+
+      <div class="results-meta">
+        <span id="count" aria-live="polite"></span>
+        <button type="button" class="btn btn-ghost" id="reset" hidden>Clear filters</button>
+      </div>
+      <div class="activity-grid" id="grid" aria-busy="true"></div>
+      <div class="load-more"><button type="button" class="btn btn-ghost" id="more" hidden>Show more</button></div>
+    </div>
+  </main>
+</body>
+</html>

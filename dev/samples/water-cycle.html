@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Water Cycle Adventure</title>
+<meta name="description" content="Follow a water droplet through evaporation, condensation, precipitation and collection, then check what you learned.">
+<style>
+  body { font-family: Georgia, serif; margin: 0; color: #12324a; background: linear-gradient(#bfe6ff, #fff 40%); }
+  nav { position: sticky; top: 0; background: #0b6aa2; padding: .75rem; text-align: center; }
+  nav a { color: #fff; margin: 0 .6rem; font-weight: bold; }
+  section { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem; min-height: 70vh; }
+  h1 { text-align: center; font-size: 2.4rem; padding-top: 2rem; }
+  .emoji { font-size: 3rem; }
+  .check button { margin: .3rem; padding: .5rem 1rem; }
+</style>
+</head>
+<body>
+  <h1>💧 The Water Cycle Adventure</h1>
+  <nav>
+    <a href="#evaporation">Evaporation</a>
+    <a href="#condensation">Condensation</a>
+    <a href="#precipitation">Precipitation</a>
+    <a href="#collection">Collection</a>
+    <a href="#check">Check</a>
+  </nav>
+  <section id="evaporation">
+    <div class="emoji">☀️</div>
+    <h2>Evaporation</h2>
+    <p>The sun heats water in oceans, lakes and rivers. When liquid water gets warm enough, it turns into an invisible gas called water vapor. The water vapor rises up into the sky. This change from a liquid to a gas is called evaporation.</p>
+    <p>Puddles on the playground disappear on a sunny day because of evaporation. The water does not vanish. It moves into the air as water vapor.</p>
+  </section>
+  <section id="condensation">
+    <div class="emoji">☁️</div>
+    <h2>Condensation</h2>
+    <p>High in the sky the air is cooler. The water vapor cools down and turns back into tiny drops of liquid water. Millions of these drops gather together to make clouds. This change from a gas to a liquid is called condensation.</p>
+    <p>You can see condensation on the outside of a cold glass of juice on a hot day.</p>
+  </section>
+  <section id="precipitation">
+    <div class="emoji">🌧️</div>
+    <h2>Precipitation</h2>
+    <p>When the drops in a cloud join together and get too heavy, they fall back to Earth. Water that falls from clouds is called precipitation. It can be rain, snow, sleet or hail, depending on how cold the air is.</p>
+  </section>
+  <section id="collection">
+    <div class="emoji">🌊</div>
+    <h2>Collection</h2>
+    <p>Precipitation collects in oceans, lakes, rivers and under the ground. Plants and animals use some of the water. Then the sun heats the water again, and the cycle starts over. The water cycle never stops!</p>
+  </section>
+  <section id="check" class="check">
+    <h2>Quick check</h2>
+    <p>Which step of the water cycle makes clouds?</p>
+    <button onclick="answer(this, false)">Evaporation</button>
+    <button onclick="answer(this, true)">Condensation</button>
+    <button onclick="answer(this, false)">Collection</button>
+    <p id="result"></p>
+  </section>
+<script>
+  function answer(btn, correct) {
+    document.getElementById('result').textContent = correct
+      ? "Yes! Water vapor cools and condenses into clouds."
+      : "Try again. Think about when water vapor cools down.";
+  }
+</script>
+</body>
+</html>

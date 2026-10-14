@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لعبة الحروف العربية</title>
+<style>
+  body { font-family: 'Noto Kufi Arabic', Tahoma, sans-serif; background: #f6fff4; text-align: center; padding: 2rem; }
+  .letter { font-size: 6rem; color: #1b7f3b; margin: 1rem; }
+  .choices button { font-size: 2rem; margin: .5rem; padding: .5rem 1.25rem; border-radius: 14px; border: 3px solid #1b7f3b; background: #fff; }
+  #msg { font-size: 1.5rem; min-height: 2rem; }
+</style>
+</head>
+<body>
+  <h1>هيا نتعلم الحروف العربية! 🐫</h1>
+  <p>اسمع الحرف ثم اختر الصورة التي تبدأ بهذا الحرف.</p>
+  <div class="letter" id="letter">ب</div>
+  <div class="choices" id="choices"></div>
+  <p id="msg"></p>
+<script>
+  const rounds = [
+    { letter: 'ب', choices: ['🦆 بطة', '🐟 سمكة', '🌙 قمر'], answer: 0 },
+    { letter: 'س', choices: ['🍎 تفاحة', '🐟 سمكة', '🏠 بيت'], answer: 1 },
+    { letter: 'ق', choices: ['🌙 قمر', '🐱 قطة', '☀️ شمس'], answer: 0 },
+    { letter: 'ش', choices: ['🌳 شجرة', '🚗 سيارة', '🐘 فيل'], answer: 0 }
+  ];
+  let i = 0;
+  function show() {
+    const r = rounds[i];
+    document.getElementById('letter').textContent = r.letter;
+    const box = document.getElementById('choices');
+    box.innerHTML = '';
+    r.choices.forEach((c, n) => {
+      const b = document.createElement('button');
+      b.textContent = c;
+      b.onclick = () => {
+        document.getElementById('msg').textContent = n === r.answer ? 'أحسنت! ⭐' : 'حاول مرة أخرى';
+        if (n === r.answer) setTimeout(() => { i = (i + 1) % rounds.length; show(); document.getElementById('msg').textContent = ''; }, 900);
+      };
+      box.appendChild(b);
+    });
+  }
+  show();
+</script>
+</body>
+</html>
