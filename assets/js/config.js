@@ -6,7 +6,7 @@ export const CONFIG = {
 
   // The backend's "Teachers" deployment (Who has access: Anyone within the school), used for
   // single sign-on. `node apps-script/deploy.mjs` prints it.
-  signInUrl: '',
+  signInUrl: 'https://script.google.com/macros/s/AKfycbzXKvVElJ1Bj2172-54u6-PxFGO1FYF7BheiJhrBz_twoKFmFp411Cb5W5CRWU2SY0Fyw/exec',
 
   // Names shown in the header and page titles.
   schoolName: 'AISA',
