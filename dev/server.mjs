@@ -40,6 +40,7 @@ const gas = createGas({
   log: console.log,
   props: {
     GOOGLE_CLIENT_ID: 'dev-client-id.apps.googleusercontent.com',
+    SCHOOL_DOMAIN: 'aisa.test',
     ...(args.has('--no-ai') ? {} : { ANTHROPIC_API_KEY: 'dev-key' }),
   },
 });

@@ -73,6 +73,11 @@ export async function requireTeacher(container) {
     return s;
   }
 
+  const domain = config.schoolDomain || '';
+  if (domain) {
+    card.querySelector('.gate-text').textContent = `Sign in with your @${domain} Google account to create activities and browse the shared library. Only teachers on the school’s list can get in.`;
+  }
+
   return new Promise((resolve) => {
     const finish = async (idToken) => {
       status.classList.remove('is-error');
@@ -84,6 +89,10 @@ export async function requireTeacher(container) {
       } catch (e) {
         status.textContent = e instanceof ApiError ? e.message : 'Sign-in failed. Please try again.';
         status.classList.add('is-error');
+        // Don't keep signing in automatically with an account that isn't allowed.
+        if (e.code === 'WRONG_DOMAIN' || e.code === 'NOT_TEACHER') {
+          try { window.google?.accounts?.id?.disableAutoSelect(); } catch { /* ignore */ }
+        }
       }
     };
 
@@ -107,7 +116,8 @@ export async function requireTeacher(container) {
       google.accounts.id.initialize({
         client_id: config.googleClientId,
         callback: (resp) => finish(resp.credential),
-        auto_select: true,
+        ...(domain ? { hd: domain } : {}), // only offer school accounts in Google's account picker
+        auto_select: true, // returning teachers already signed in to Google get straight in
         cancel_on_tap_outside: false,
         itp_support: true,
         use_fedcm_for_prompt: true,

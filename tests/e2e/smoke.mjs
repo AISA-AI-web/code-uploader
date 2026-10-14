@@ -29,10 +29,16 @@ check('library shows teacher gate before sign-in', await page.isVisible('text=Te
 await page.screenshot({ path: `${OUT}/01-gate.png` });
 
 // Student account is refused
-await page.fill('.dev-signin input[type=email]', 'kid@students.aisa.test');
+await page.fill('.dev-signin input[type=email]', 'student@aisa.test');
 await page.click('text=Dev sign-in');
 await page.waitForSelector('.gate-status.is-error');
-check('student email refused', /isn’t on the teacher list/.test(await page.textContent('.gate-status')), await page.textContent('.gate-status'));
+check('school student account refused', /isn’t on the teacher list/.test(await page.textContent('.gate-status')), await page.textContent('.gate-status'));
+
+await page.fill('.dev-signin input[type=email]', 'someone@gmail.com');
+await page.click('text=Dev sign-in');
+await page.waitForFunction(() => /school account/.test(document.querySelector('.gate-status')?.textContent || ''));
+check('personal Google account refused', /@aisa\.test school account/.test(await page.textContent('.gate-status')), await page.textContent('.gate-status'));
+check('sign-in card names the school domain', /@aisa\.test Google account/.test(await page.textContent('.gate-text')));
 
 await page.fill('.dev-signin input[type=email]', 'teacher@aisa.test');
 await page.click('text=Dev sign-in');

@@ -301,6 +301,8 @@ export function devFetchHandler({ classifyText } = {}) {
           exp: String(Math.floor(Date.now() / 1000) + 3600),
           name: name || email.split('@')[0],
           picture: '',
+          // Google adds "hd" (hosted domain) only for Google Workspace accounts.
+          ...(/@(gmail|googlemail)\.com$/i.test(email) ? {} : { hd: email.split('@')[1] }),
         },
       };
     }

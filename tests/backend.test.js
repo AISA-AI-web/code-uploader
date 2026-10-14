@@ -6,12 +6,12 @@ import { createGas, devFetchHandler } from '../dev/gas-mock.mjs';
 const CLIENT_ID = 'test-client.apps.googleusercontent.com';
 
 function setup({ props = {}, fetchHandler } = {}) {
-  const gas = createGas({ fetchHandler: fetchHandler || devFetchHandler(), props: { GOOGLE_CLIENT_ID: CLIENT_ID, ...props } });
+  const gas = createGas({ fetchHandler: fetchHandler || devFetchHandler(), props: { GOOGLE_CLIENT_ID: CLIENT_ID, SCHOOL_DOMAIN: 'aisa.test', ...props } });
   gas.run('setup');
   const teachers = gas.sheet('Teachers');
   teachers.appendRow(['Teacher@AISA.test', 'Ms. Rivera', 'teacher']);
   teachers.appendRow(['coach@aisa.test', 'Mr. Haddad', 'Teacher']);
-  teachers.appendRow(['*@staff.aisa.test', '', 'teacher']);
+  teachers.appendRow(['teacher.home@gmail.com', 'Ms. Rivera (personal)', 'teacher']);
   teachers.appendRow(['head@aisa.test', 'Dr. Head', 'Admin']);
   gas.run('clearCaches');
   const login = (email) => {
@@ -31,13 +31,43 @@ test('setup creates the sheets and makes the owner an admin', () => {
   assert.equal(gas.doGet({}).ok, true);
 });
 
-test('only listed teachers can sign in', () => {
+test('only rostered teachers at the school domain can sign in', () => {
   const { gas, login } = setup();
   assert.equal(typeof login('teacher@aisa.test'), 'string', 'emails match case-insensitively');
-  assert.equal(typeof login('new.hire@staff.aisa.test'), 'string', 'domain rows allow everyone at that domain');
-  assert.equal(login('kid@students.aisa.test').code, 'NOT_TEACHER');
-  assert.equal(login('someone@sub.staff.aisa.test').code, 'NOT_TEACHER', 'subdomains are not included');
+  assert.equal(login('student@aisa.test').code, 'NOT_TEACHER', 'school accounts not on the Teachers tab are refused');
+  assert.equal(login('teacher.home@gmail.com').code, 'WRONG_DOMAIN', 'personal accounts are refused even if listed');
+  assert.equal(login('teacher@other-school.test').code, 'WRONG_DOMAIN');
   assert.equal(gas.doPost({ action: 'login', idToken: 'forged' }).code, 'BAD_TOKEN');
+  assert.equal(gas.doPost({ action: 'config' }).schoolDomain, 'aisa.test');
+});
+
+test('a school-looking address without a Workspace account is refused', () => {
+  const handler = devFetchHandler();
+  const { login } = setup({ fetchHandler: (url, opts, ctx) => { const r = handler(url, opts, ctx); delete r.body.hd; return r; } });
+  assert.equal(login('teacher@aisa.test').code, 'WRONG_DOMAIN');
+});
+
+test('the school domain defaults to aisa.sch.ae', () => {
+  const gas = createGas({ props: { GOOGLE_CLIENT_ID: CLIENT_ID } });
+  gas.run('setup');
+  assert.equal(gas.doPost({ action: 'config' }).schoolDomain, 'aisa.sch.ae');
+});
+
+test('with SCHOOL_DOMAIN=any, *@domain rows admit a whole domain (subdomains excluded)', () => {
+  const { gas, login } = setup({ props: { SCHOOL_DOMAIN: 'any' } });
+  gas.sheet('Teachers').appendRow(['*@staff.aisa.test', '', 'teacher']);
+  gas.run('clearCaches');
+  assert.equal(typeof login('new.hire@staff.aisa.test'), 'string');
+  assert.equal(login('someone@sub.staff.aisa.test').code, 'NOT_TEACHER');
+  assert.equal(typeof login('teacher.home@gmail.com'), 'string');
+});
+
+test('sessions from outside the school domain stop working if the domain is locked later', () => {
+  const { gas, login } = setup({ props: { SCHOOL_DOMAIN: 'any' } });
+  const personal = login('teacher.home@gmail.com');
+  assert.equal(gas.doPost({ action: 'list', session: personal }).ok, true);
+  gas.props.set('SCHOOL_DOMAIN', 'aisa.test');
+  assert.equal(gas.doPost({ action: 'list', session: personal }).code, 'NOT_TEACHER');
 });
 
 test('tokens for another app are rejected', () => {

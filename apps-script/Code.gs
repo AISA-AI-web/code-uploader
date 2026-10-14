@@ -14,6 +14,7 @@
  *
  * Script properties
  *   GOOGLE_CLIENT_ID   OAuth client ID for "Sign in with Google" (turns teacher sign-in on)
+ *   SCHOOL_DOMAIN      Google Workspace domain teachers sign in with (default aisa.sch.ae; "any" turns the check off)
  *   OPEN_MODE          "true" lets anyone create and browse without signing in (testing only)
  *   SESSION_DAYS       How many days a teacher stays signed in (default 7)
  *   ANTHROPIC_API_KEY  Optional: AI suggestions with Claude
@@ -37,6 +38,7 @@ const SETTINGS = {
   ROSTER_CACHE_SECONDS: 300,
   CODE_CACHE_SECONDS: 21600,
   CACHE_CHUNK_CHARS: 30000,
+  SCHOOL_DOMAIN: 'aisa.sch.ae',
 };
 
 // Keep in sync with assets/js/taxonomy.js (tests/taxonomy-sync.test.js checks this).
@@ -162,11 +164,23 @@ function authMode_() {
   return 'unconfigured';
 }
 
+/** The Google Workspace domain teachers must sign in with, or '' when any domain is accepted. */
+function schoolDomain_() {
+  const value = String(props_().getProperty('SCHOOL_DOMAIN') || SETTINGS.SCHOOL_DOMAIN).trim().toLowerCase().replace(/^\*?@/, '');
+  return value === 'any' ? '' : value;
+}
+
+function inSchoolDomain_(email) {
+  const domain = schoolDomain_();
+  return !domain || String(email || '').toLowerCase().split('@')[1] === domain;
+}
+
 function getConfig_() {
   const mode = authMode_();
   return {
     auth: mode === 'open' ? 'open' : 'google',
     googleClientId: props_().getProperty('GOOGLE_CLIENT_ID') || '',
+    schoolDomain: schoolDomain_(),
     ai: !!aiSettings_(),
     maxCodeBytes: SETTINGS.MAX_CODE_BYTES,
     version: APP_VERSION,
@@ -179,6 +193,12 @@ function login_(body) {
   }
   const claims = verifyGoogleIdToken_(String(body.idToken || ''));
   const email = String(claims.email).toLowerCase();
+  const domain = schoolDomain_();
+  // "hd" is only present for Google Workspace accounts, so a personal account that merely uses a
+  // school-looking address can't get in.
+  if (domain && (!inSchoolDomain_(email) || String(claims.hd || '').toLowerCase() !== domain)) {
+    throw clientError_('Please sign in with your @' + domain + ' school account (you signed in as ' + email + ').', 'WRONG_DOMAIN');
+  }
   const teacher = findTeacher_(email);
   if (!teacher) {
     throw clientError_(email + ' isn’t on the teacher list for this site. If you’re a teacher, ask an administrator to add you to the Teachers tab.', 'NOT_TEACHER');
@@ -263,6 +283,7 @@ function requireTeacher_(body) {
   const s = readSession_(body && body.session);
   if (!s) throw clientError_('Please sign in with your school Google account to continue.', 'AUTH_REQUIRED');
   if (s.expired) throw clientError_('Your sign-in has expired. Please sign in again.', 'SESSION_EXPIRED');
+  if (!inSchoolDomain_(s.email)) throw clientError_('Please sign in with your @' + schoolDomain_() + ' school account.', 'NOT_TEACHER');
   const teacher = findTeacher_(s.email);
   if (!teacher) throw clientError_('Your account isn’t on the teacher list any more.', 'NOT_TEACHER');
   return { email: s.email, name: teacher.name || '', role: teacher.role };

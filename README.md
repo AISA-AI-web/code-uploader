@@ -112,7 +112,12 @@ Teachers sign in with **Sign in with Google**, using the same school account the
 4. In Apps Script, open **Project Settings → Script properties → Add script property**:
    - Property: `GOOGLE_CLIENT_ID`, Value: the Client ID you copied.
 
-Teachers who are already signed into their school Google account in the browser get in with one click. If your Workspace signs in through another provider (Microsoft, ClassLink, …), Google sends teachers through it as usual.
+How sign-in works:
+
+- **Only @aisa.sch.ae accounts.** Google's account picker shows only school accounts, and the backend refuses any other account (including a personal Gmail) even if its address is on the Teachers tab. It also checks Google's Workspace marker on the account, so a personal account that merely uses a school-looking address can't get in. To use a different domain, set the `SCHOOL_DOMAIN` script property.
+- **Only rostered teachers.** A school account that isn't on the **Teachers** tab (for example a student's) is told it isn't on the teacher list.
+- **Automatic for returning teachers.** Teachers who are already signed into their school Google account in the browser get in with one click the first time and automatically after that. If your Workspace signs in through another provider (Microsoft, ClassLink, …), Google sends teachers through it as usual.
+- **Students never sign in.** Activity links and QR codes work without an account.
 
 ### 5. Add your teachers
 
@@ -122,10 +127,10 @@ Open the spreadsheet created in step 2 and go to the **Teachers** tab:
 |---|---|---|---|
 | `jane.smith@aisa.sch.ae` | Ms. Smith | teacher | |
 | `it.lead@aisa.sch.ae` | | admin | can edit or delete any activity |
-| `*@staff.aisa.sch.ae` | | teacher | everyone at this domain |
 
-- One row per teacher. **role** is `teacher` (default) or `admin`.
-- If teachers and students have **different email domains**, a single row like `*@staff.aisa.sch.ae` lets every teacher in, and students are kept out automatically. Subdomains aren't included: `*@aisa.sch.ae` does **not** match `@students.aisa.sch.ae`.
+- One row per teacher; you can paste a whole column of emails from your staff list. **name** is optional (it's how they're shown in the library) and **role** is `teacher` (default) or `admin`.
+- Everyone not on this tab is kept out of creating and browsing, including students with @aisa.sch.ae accounts.
+- A row like `*@aisa.sch.ae` would let *every* school account in, students included, so don't add one unless students use a different domain.
 - Changes take effect within 5 minutes. To apply them immediately, run **`clearCaches`** in the Apps Script editor.
 - Removing someone from the list ends their access within 5 minutes (immediately after `clearCaches`), even if they’re signed in.
 
@@ -138,6 +143,7 @@ That's it — open the site, sign in and paste an activity.
 | Property | What it does |
 |---|---|
 | `GOOGLE_CLIENT_ID` | Turns on teacher sign-in (step 4). |
+| `SCHOOL_DOMAIN` | The Google Workspace domain teachers must sign in with. Default `aisa.sch.ae`; `any` accepts any Google account on the Teachers tab. |
 | `SESSION_DAYS` | How long teachers stay signed in. Default `7`. |
 | `OPEN_MODE` | `true` lets **anyone** create and browse with no sign-in. Only use it for a quick trial before step 4. |
 | `ANTHROPIC_API_KEY` | Turns on AI suggestions using Claude (see below). |
