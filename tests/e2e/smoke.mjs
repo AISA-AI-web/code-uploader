@@ -24,30 +24,25 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.
 
 // --- Library: single sign-on ---
 // Opening the library without a session goes straight to the school sign-in (the dev server's
-// stand-in for Google). A student account is turned away and sent back to the hub.
+// stand-in for Google). A personal account is turned away and sent back to the hub.
 const devSignIn = async (p, email) => {
   await p.waitForSelector('#dev-email');
   await p.fill('#dev-email', email);
   await p.click('#dev-continue');
 };
 await page.goto(`${BASE}/library.html`);
-await devSignIn(page, 'student@aisa.test');
+await devSignIn(page, 'someone@gmail.com');
 await page.waitForSelector('h1:has-text("We can’t sign you in")');
-check('school student account refused on the sign-in page', /isn’t on the teacher list/.test(await page.textContent('body')));
+check('personal Google account refused on the sign-in page', /@aisa\.test school account/.test(await page.textContent('body')));
 await page.screenshot({ path: `${OUT}/01-signin-refused.png` });
 await page.click('#go');
 await page.waitForSelector('.gate-status.is-error');
-check('back on the hub, the refusal is shown and there is no redirect loop', /isn’t on the teacher list/.test(await page.textContent('.gate-status')) && page.url().endsWith('/library.html'));
-check('sign-in card names the school domain', /@aisa\.test Google account/.test(await page.textContent('.gate-text')));
+check('back on the hub, the refusal is shown and there is no redirect loop', /@aisa\.test school account/.test(await page.textContent('.gate-status')) && page.url().endsWith('/library.html'));
+const gateText = await page.textContent('.gate-text');
+check('sign-in card names the school domain', /@aisa\.test Google account/.test(gateText));
+check('with the teacher list off, the card doesn’t mention it', !/school’s list/.test(gateText));
 await page.screenshot({ path: `${OUT}/01-gate.png` });
 
-await page.click('.gate-button button');
-await devSignIn(page, 'someone@gmail.com');
-await page.waitForSelector('h1:has-text("We can’t sign you in")');
-check('personal Google account refused', /@aisa\.test school account/.test(await page.textContent('body')));
-
-await page.click('#go');
-await page.waitForSelector('.gate-button button');
 await page.click('.gate-button button');
 await devSignIn(page, 'teacher@aisa.test');
 await page.waitForSelector('.activity-card');

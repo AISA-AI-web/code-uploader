@@ -8,7 +8,7 @@ Teachers paste HTML from any AI tool or resource (ChatGPT, Gemini, Claude, Canva
 - **Download** — every page can save the activity as an `.html` file
 - **A shared library** — every activity is saved so other teachers can find, use and remix it, browsable by **grade level**, subject and activity type
 - **Automatic tagging** — the tool reads the code and suggests the title, grade level(s), subject, concept and activity type (optionally improved by AI)
-- **Teachers only** — creating and browsing require signing in with a school Google account on the teacher list; students can only open the links they're given
+- **Teachers only** — creating and browsing require signing in with a school Google account (for now any @aisa.sch.ae account; turn on the teacher list to limit it to staff); students can only open the links they're given
 
 The website is static HTML/JS hosted on **GitHub Pages**. The backend is **Google Apps Script**: activity details live in a Google Sheet, the HTML files in a private Google Drive folder.
 
@@ -40,7 +40,7 @@ Until the backend is connected, the site runs in **demo mode**: everything works
 The backend is one Apps Script project, deployed twice:
 
 - **Public** (*Who has access: Anyone*) serves activities to anyone with a link, with no sign-in, and answers the website.
-- **Teachers** (*Who has access: Anyone within AISA*) is the sign-in. Google signs teachers in with their school account, the script reads their email, checks the Teachers tab, and sends them back to the website signed in. This is Apps Script's built-in single sign-on, so there's nothing to set up in Google Cloud Console.
+- **Teachers** (*Who has access: Anyone within AISA*) is the sign-in. Google signs teachers in with their school account, the script reads their email, checks it (and the Teachers tab, once the teacher list is on), and sends them back to the website signed in. This is Apps Script's built-in single sign-on, so there's nothing to set up in Google Cloud Console.
 
 Use an @aisa.sch.ae account to own the project; "Anyone within AISA" only exists for school accounts.
 
@@ -107,9 +107,11 @@ signInUrl: 'https://script.google.com/macros/s/AKfy…teachers…/exec',
 
 Commit the change. GitHub Pages updates within a minute.
 
-### 4. Add your teachers
+### 4. Add your teachers (optional for now)
 
-Open the spreadsheet created in step 2 and go to the **Teachers** tab:
+**For now the teacher list is off: anyone with an @aisa.sch.ae account can sign in**, students included. Accounts on the Teachers tab still get their name and role (so admins stay admins); everyone else signs in as a teacher, with a name taken from their email.
+
+When you're ready to limit the hub to staff, fill in the **Teachers** tab of the spreadsheet created in step 2, then turn the list on: in Apps Script, **Project Settings → Script properties → Add script property**, `TEACHER_LIST` = `on`. It takes effect straight away, with no redeploy, and anyone not on the tab loses access on their next request, even if they're signed in.
 
 | email | name | role | notes |
 |---|---|---|---|
@@ -117,7 +119,7 @@ Open the spreadsheet created in step 2 and go to the **Teachers** tab:
 | `it.lead@aisa.sch.ae` | | admin | can edit or delete any activity |
 
 - One row per teacher; you can paste a whole column of emails from your staff list. **name** is optional (it's how they're shown in the library) and **role** is `teacher` (default) or `admin`.
-- Everyone not on this tab is kept out of creating and browsing, including students with @aisa.sch.ae accounts.
+- With `TEACHER_LIST` on, everyone not on this tab is kept out of creating and browsing, including students with @aisa.sch.ae accounts.
 - A row like `*@aisa.sch.ae` would let *every* school account in, students included, so don't add one unless students use a different domain.
 - Changes take effect within 5 minutes. To apply them immediately, run **`clearCaches`** in the Apps Script editor.
 - Removing someone from the list ends their access within 5 minutes (immediately after `clearCaches`), even if they’re signed in.
@@ -126,7 +128,7 @@ How sign-in works:
 
 - **Automatic.** Opening Create or Library goes straight to Google's school sign-in. A teacher already signed in to their @aisa.sch.ae account in the browser comes straight back signed in. If your Workspace signs in through another provider (Microsoft, ClassLink, …), Google sends teachers through it as usual. If Google's page shows a **Continue** button, that's one click.
 - **Only @aisa.sch.ae accounts.** Google only lets school accounts reach the sign-in page, and the backend refuses any other account even if it's on the Teachers tab. To use a different domain, set the `SCHOOL_DOMAIN` script property.
-- **Only rostered teachers.** A school account that isn't on the Teachers tab, such as a student's, is told it isn't on the teacher list.
+- **Only rostered teachers, once the list is on.** With `TEACHER_LIST` on, a school account that isn't on the Teachers tab, such as a student's, is told it isn't on the teacher list. Until then, every school account gets in.
 - **Students never sign in.** Activity links and QR codes work for anyone, on any device, signed in or not.
 - **Signing out** keeps the teacher signed out on that browser until they click **Sign in** again.
 
@@ -138,7 +140,8 @@ That's it — open the site, sign in and paste an activity.
 
 | Property | What it does |
 |---|---|
-| `SCHOOL_DOMAIN` | The Google Workspace domain teachers must sign in with. Default `aisa.sch.ae`; `any` accepts any Google account on the Teachers tab. |
+| `SCHOOL_DOMAIN` | The Google Workspace domain teachers must sign in with. Default `aisa.sch.ae`; `any` turns the domain check off (with `TEACHER_LIST` on, any Google account on the Teachers tab). |
+| `TEACHER_LIST` | `on` lets only accounts on the Teachers tab sign in. `off` (the default for now) lets any `SCHOOL_DOMAIN` account sign in. |
 | `SITE_URL` | The website's address. Sign-in only ever sends teachers back here. Default `https://aisa-ai-web.github.io/code-uploader/`; change it if you move the site. |
 | `SESSION_DAYS` | How long teachers stay signed in. Default `7`. |
 | `OPEN_MODE` | `true` lets **anyone** create and browse with no sign-in. Only use it for a quick trial. |
@@ -179,7 +182,7 @@ With an AI key set, a **Check with AI** button appears and AI runs automatically
 
 - Activity code runs inside a sandboxed frame with no access to the hub, the teacher's sign-in or other activities. Activities that save progress in browser storage still work: each activity's saved data is kept separately on the student's device.
 - Every activity is visible to all signed-in teachers, and anyone with an activity's link can open it. Don't put student names or other personal information into activities.
-- Sign-in uses Google's own school sign-in (the Teachers deployment only opens for @aisa.sch.ae accounts), then a session token signed by the backend. The session comes back in the part of the address after `#`, which is never sent to any server, and it is only ever sent to the hub's own address. The teacher list is checked on every request.
+- Sign-in uses Google's own school sign-in (the Teachers deployment only opens for @aisa.sch.ae accounts), then a session token signed by the backend. The session comes back in the part of the address after `#`, which is never sent to any server, and it is only ever sent to the hub's own address. The school domain, and the teacher list once it's on, are checked on every request.
 - Nothing secret is stored in this repository. API keys live only in Apps Script's script properties.
 
 ## Customising
@@ -223,5 +226,5 @@ tests/                Unit tests (node --test) and the browser smoke test
 | "We couldn't tell which Google account you're using" | The Teachers deployment must be *Who has access: Anyone within AISA* (`deploy.mjs` does this) and the project must belong to an @aisa.sch.ae account. |
 | Google Drive page: "Sorry, unable to open the file at this time" | The browser is signed in to several Google accounts and the default one isn't a school account. The site already uses the school form of the sign-in address (`script.google.com/a/macros/aisa.sch.ae/…`); if it still happens, sign in from a browser profile or window where the @aisa.sch.ae account is the only (or first) Google account. |
 | Google says "You need access" or asks you to switch accounts | You're signed in to Google with a personal account. Switch to (or add) your @aisa.sch.ae account. |
-| "… isn't on the teacher list" | Add the email (or a `*@domain` row) to the **Teachers** tab, then run `clearCaches` or wait 5 minutes. |
+| "… isn't on the teacher list" | `TEACHER_LIST` is on. Add the email (or a `*@domain` row) to the **Teachers** tab, then run `clearCaches` or wait 5 minutes, or set `TEACHER_LIST` to `off` to let every school account in. |
 | An activity is blank or partly broken | The preview shows any errors the code reports. The paste checker warns about code that's cut off, references to files that weren't included (`style.css`, `images/…`), and React code that isn't a web page. Ask the AI tool for "one self-contained HTML file". |

@@ -3,14 +3,15 @@
  * ------------------------------------------------
  * Stores each activity's details in a Google Sheet ("Activities" tab) and its HTML in a private
  * Google Drive folder. Students open a single activity by its link without signing in. Teachers
- * on the "Teachers" tab can create activities and browse the library.
+ * sign in with their school account to create activities and browse the library (only those on
+ * the "Teachers" tab once TEACHER_LIST is on).
  *
  * Teacher sign-in uses Google's own school single sign-on — no Cloud Console setup. The same
  * script is deployed twice (apps-script/deploy.mjs does both; see README.md):
  *   • Public   — Who has access: Anyone. Serves activities and the website's API.
  *   • Teachers — Who has access: Anyone within the school. Google signs the teacher in, this
- *                script reads their email, checks the Teachers tab and sends them back to the
- *                website with a signed session.
+ *                script reads their email, checks it (and the Teachers tab, if TEACHER_LIST is on)
+ *                and sends them back to the website with a signed session.
  *
  * Setup (full steps in README.md):
  *   1. Put this file and appsscript.json in an Apps Script project owned by a school account.
@@ -19,6 +20,7 @@
  *
  * Script properties
  *   SCHOOL_DOMAIN      Google Workspace domain teachers sign in with (default aisa.sch.ae; "any" turns the check off)
+ *   TEACHER_LIST       "on" admits only accounts on the Teachers tab; "off" admits any account at SCHOOL_DOMAIN (default off for now)
  *   SITE_URL           The website's address; sign-in only ever returns there (default https://aisa-ai-web.github.io/code-uploader/)
  *   OPEN_MODE          "true" lets anyone create and browse without signing in (testing only)
  *   SESSION_DAYS       How many days a teacher stays signed in (default 7)
@@ -44,6 +46,9 @@ const SETTINGS = {
   CODE_CACHE_SECONDS: 21600,
   CACHE_CHUNK_CHARS: 30000,
   SCHOOL_DOMAIN: 'aisa.sch.ae',
+  // For now any school account can sign in. Once the Teachers tab is filled in, set the
+  // TEACHER_LIST script property to "on" (or change this to true) to admit only those on it.
+  TEACHER_LIST: false,
   SITE_URL: 'https://aisa-ai-web.github.io/code-uploader/',
   APP_NAME: 'AISA Activity Hub',
 };
@@ -144,7 +149,7 @@ function setup() {
     'Activity Hub is set up.',
     'Spreadsheet: ' + ss.getUrl(),
     'Activity files folder: ' + folder.getUrl(),
-    'Next: add teacher emails to the "Teachers" tab, then deploy with `node apps-script/deploy.mjs` (see README).',
+    'Next: deploy with `node apps-script/deploy.mjs` (see README). Any school account can sign in until you add teachers to the "Teachers" tab and set the TEACHER_LIST script property to "on".',
   ].join('\n');
   console.log(message);
   return message;
@@ -174,6 +179,14 @@ function schoolDomain_() {
   return value === 'any' ? '' : value;
 }
 
+/** True when only accounts on the Teachers tab may sign in. */
+function teacherListOn_() {
+  const value = String(props_().getProperty('TEACHER_LIST') || '').trim().toLowerCase();
+  if (/^(on|true|yes)$/.test(value)) return true;
+  if (/^(off|false|no)$/.test(value)) return false;
+  return SETTINGS.TEACHER_LIST;
+}
+
 function inSchoolDomain_(email) {
   const domain = schoolDomain_();
   return !domain || String(email || '').toLowerCase().split('@')[1] === domain;
@@ -184,6 +197,7 @@ function getConfig_() {
   return {
     auth: mode,
     schoolDomain: schoolDomain_(),
+    teacherList: teacherListOn_(),
     ai: !!aiSettings_(),
     maxCodeBytes: SETTINGS.MAX_CODE_BYTES,
     version: APP_VERSION,
@@ -362,13 +376,17 @@ function loadRoster_() {
   return roster;
 }
 
+/**
+ * The account's Teachers-tab entry. With the teacher list off, accounts that aren't on it are
+ * let in as teachers (callers check the school domain first); the tab still sets names and admins.
+ */
 function findTeacher_(email) {
   email = String(email || '').toLowerCase();
   const roster = loadRoster_();
   if (roster.emails[email]) return roster.emails[email];
   const domain = email.split('@')[1];
   if (domain && roster.domains[domain]) return roster.domains[domain];
-  return null;
+  return teacherListOn_() ? null : { name: '', role: 'teacher' };
 }
 
 // ===========================================================================

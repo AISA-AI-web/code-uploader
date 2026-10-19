@@ -7,8 +7,9 @@
 //   npm run dev -- --no-ai      → turn off the simulated AI suggestions
 //   LATENCY=800 npm run dev     → add a delay to API responses, like a real Apps Script
 //
-// Sign in as any email on the Teachers list below (e.g. teacher@aisa.test) on the stand-in for
-// Google's school sign-in.
+// Sign in as any @aisa.test email (e.g. teacher@aisa.test) on the stand-in for Google's school
+// sign-in. The Teachers list below sets names and the admin, like the real Teachers tab while
+// TEACHER_LIST is off.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';

@@ -5,8 +5,9 @@ import { createGas, devFetchHandler } from '../dev/gas-mock.mjs';
 
 const SITE = 'https://site.test/hub/';
 
+// Most tests run with the teacher list on; 'until the teacher list is turned on…' covers it off.
 function setup({ props = {}, fetchHandler } = {}) {
-  const gas = createGas({ fetchHandler: fetchHandler || devFetchHandler(), props: { SCHOOL_DOMAIN: 'aisa.test', SITE_URL: SITE, ...props } });
+  const gas = createGas({ fetchHandler: fetchHandler || devFetchHandler(), props: { SCHOOL_DOMAIN: 'aisa.test', SITE_URL: SITE, TEACHER_LIST: 'on', ...props } });
   gas.run('setup');
   const teachers = gas.sheet('Teachers');
   teachers.appendRow(['Teacher@AISA.test', 'Ms. Rivera', 'teacher']);
@@ -42,6 +43,28 @@ test('only rostered teachers at the school domain can sign in', () => {
   const config = gas.doPost({ action: 'config' });
   assert.equal(config.schoolDomain, 'aisa.test');
   assert.equal(config.auth, 'sso');
+  assert.equal(config.teacherList, true);
+});
+
+test('until the teacher list is turned on, any account at the school domain can sign in', () => {
+  const { gas, login } = setup();
+  gas.props.delete('TEACHER_LIST');
+  assert.equal(gas.doPost({ action: 'config' }).teacherList, false, 'off by default');
+  const newcomer = gas.signIn('new.teacher@aisa.test', `${SITE}library.html`).session;
+  assert.equal(newcomer.role, 'teacher');
+  assert.equal(newcomer.name, 'New Teacher');
+  assert.equal(gas.doPost({ action: 'list', session: newcomer.token }).ok, true);
+  assert.ok(gas.doPost({ action: 'create', session: newcomer.token, ...ACTIVITY }).ok);
+  const head = gas.signIn('head@aisa.test', `${SITE}library.html`).session;
+  assert.equal(head.role, 'admin', 'the Teachers tab still sets admins');
+  assert.equal(head.name, 'Dr. Head', 'and names');
+  assert.equal(login('teacher.home@gmail.com').code, 'WRONG_DOMAIN', 'other domains are still refused');
+  assert.equal(login('').code, 'NO_IDENTITY');
+
+  gas.props.set('TEACHER_LIST', 'on');
+  assert.equal(gas.doPost({ action: 'list', session: newcomer.token }).code, 'NOT_TEACHER', 'turning the list on ends access for anyone not on it');
+  assert.equal(login('new.teacher@aisa.test').code, 'NOT_TEACHER');
+  assert.equal(gas.doPost({ action: 'list', session: head.token }).ok, true);
 });
 
 test('the sign-in page returns a working session to the page the teacher came from', () => {

@@ -2,7 +2,8 @@
 //
 // "Sign in" sends the teacher to the backend's Teachers deployment (Who has access: Anyone within
 // the school). Google signs them in with their school account, the backend checks the email
-// against the Teachers tab, and sends them back here with a session in the URL fragment.
+// (and the Teachers tab, when the teacher list is on), and sends them back here with a session in
+// the URL fragment.
 import { CONFIG } from './config.js';
 import { api, DEMO, getSession, setSession, clearSession } from './api.js';
 import { h, iconEl } from './ui.js';
@@ -108,7 +109,8 @@ export async function requireTeacher(container) {
 
   const domain = config.schoolDomain || '';
   schoolDomain = domain;
-  if (domain) text.textContent = `Sign in with your @${domain} Google account to create activities and browse the shared library. Only teachers on the school’s list can get in.`;
+  const listNote = config.teacherList === false ? '' : ' Only teachers on the school’s list can get in.';
+  if (domain) text.textContent = `Sign in with your @${domain} Google account to create activities and browse the shared library.${listNote}`;
   status.textContent = '';
   if (!CONFIG.signInUrl) {
     status.textContent = 'Teacher sign-in isn’t connected yet: an administrator needs to add signInUrl to assets/js/config.js (see README).';
