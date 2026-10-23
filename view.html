@@ -2,32 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Activity · AISA Activity Hub</title>
-  <meta name="description" content="An interactive learning activity.">
-  <meta property="og:title" content="AISA Activity Hub">
-  <meta property="og:description" content="An interactive learning activity shared by your teacher.">
-  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css">
-  <script src="assets/vendor/qrcode.js" defer></script>
-  <script type="module" src="assets/js/view.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>The Activity Hub has moved · AISA</title>
+  <!-- The Activity Hub moved to https://aisa-activity-hub.pages.dev/ (its code: AISA-AI-web/AI-Lessons, activity-hub/). This page sends every
+       old address – activity links and QR codes (view.html?id=…), the library, create/edit/remix – to the same
+       page there, with the same ?id=… and other parameters. -->
+  <script>location.replace('https://aisa-activity-hub.pages.dev/view.html' + location.search + location.hash);</script>
+  <meta http-equiv="refresh" content="2; url=https://aisa-activity-hub.pages.dev/view.html">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: 'DM Sans', system-ui, sans-serif; color: #1A1A1A; background: #fff; padding: 16px; text-align: center; }
+    .mark { display: inline-block; background: #21076C; color: #D8B664; font-weight: 700; letter-spacing: .06em; padding: .4rem .8rem; border-radius: 8px; margin-bottom: 1.25rem; }
+    h1 { color: #21076C; margin: 0 0 .5rem; font-size: 1.4rem; }
+    a { color: #21076C; font-weight: 700; }
+  </style>
 </head>
-<body class="viewer">
-  <div class="viewer-bar">
-    <a class="viewer-brand" id="brand" aria-label="AISA Activity Hub">AISA</a>
-    <div class="viewer-title">
-      <h1 id="title">Loading…</h1>
-      <div class="meta" id="meta"></div>
-    </div>
-    <div class="viewer-actions" id="actions"></div>
-  </div>
-  <main class="viewer-stage" id="stage">
-    <div class="viewer-status" id="status">
-      <div><div class="spinner" aria-hidden="true"></div><p>Loading activity…</p></div>
-    </div>
+<body>
+  <main>
+    <div class="mark">AISA</div>
+    <h1>The Activity Hub has moved</h1>
+    <p>Taking you there… If nothing happens, <a id="go" href="https://aisa-activity-hub.pages.dev/view.html">open the Activity Hub</a>.</p>
   </main>
+  <script>document.getElementById('go').href = 'https://aisa-activity-hub.pages.dev/view.html' + location.search + location.hash;</script>
 </body>
 </html>

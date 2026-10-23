@@ -1,5 +1,10 @@
 # AISA Activity Hub
 
+> **The Activity Hub has moved** to https://aisa-activity-hub.pages.dev, with a faster server on the school's Supabase project.
+> Its code now lives in [AISA-AI-web/AI-Lessons](https://github.com/AISA-AI-web/AI-Lessons) (`activity-hub/`). The pages here only send
+> old addresses – activity links, QR codes, the library – to the same page on the new site, so they keep working. The
+> Apps Script backend and the Sheet below are kept, read-only, until the move is settled.
+
 Teachers paste HTML from any AI tool or resource (ChatGPT, Gemini, Claude, Canva, …) and get a classroom-ready activity:
 
 - **A unique link for every activity** — students open it on any device, no sign-in needed
