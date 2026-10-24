@@ -3,60 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Activity library · AISA Activity Hub</title>
-  <meta name="description" content="Browse classroom activities shared by teachers, by grade level and subject.">
-  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css">
-  <script src="assets/vendor/qrcode.js" defer></script>
-  <script type="module" src="assets/js/library.js"></script>
+  <meta name="robots" content="noindex">
+  <title>The Activity Hub has moved · AISA</title>
+  <!-- The Activity Hub moved to https://aisa-activity-hub.pages.dev/ (its code: AISA-AI-web/AI-Lessons, activity-hub/). This page sends every
+       old address – activity links and QR codes (view.html?id=…), the library, create/edit/remix – to the same
+       page there, with the same ?id=… and other parameters. -->
+  <script>location.replace('https://aisa-activity-hub.pages.dev/library.html' + location.search + location.hash);</script>
+  <meta http-equiv="refresh" content="2; url=https://aisa-activity-hub.pages.dev/library.html">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: 'DM Sans', system-ui, sans-serif; color: #1A1A1A; background: #fff; padding: 16px; text-align: center; }
+    .mark { display: inline-block; background: #21076C; color: #D8B664; font-weight: 700; letter-spacing: .06em; padding: .4rem .8rem; border-radius: 8px; margin-bottom: 1.25rem; }
+    h1 { color: #21076C; margin: 0 0 .5rem; font-size: 1.4rem; }
+    a { color: #21076C; font-weight: 700; }
+  </style>
 </head>
 <body>
-  <header class="site-header" data-site-header></header>
-
-  <main id="main" class="page">
-    <div id="gate"></div>
-
-    <div id="app" hidden>
-      <div id="mode-banner"></div>
-      <section class="page-hero">
-        <p class="eyebrow eyebrow-gold">Shared library</p>
-        <h1>Find an activity</h1>
-        <p class="lead" id="lead">Activities made and shared by your colleagues. Open one, share it with your class, or remix it to make it your own.</p>
-      </section>
-
-      <section class="library-tools" aria-label="Search and filters">
-        <div class="search-row">
-          <div class="search-box">
-            <span data-icon="search"></span>
-            <input class="input" type="search" id="q" placeholder="Search by topic, title, concept, tag or teacher…" aria-label="Search activities">
-          </div>
-          <a class="btn btn-gold" href="index.html" data-icon="plus"><span class="btn-label">Create an activity</span></a>
-        </div>
-        <div class="grade-chips" id="grade-chips" role="group" aria-label="Filter by grade level"></div>
-        <div class="filter-row">
-          <select class="select" id="subject" aria-label="Filter by subject"></select>
-          <select class="select" id="type" aria-label="Filter by activity type"></select>
-          <select class="select" id="sort" aria-label="Sort activities">
-            <option value="new">Newest first</option>
-            <option value="old">Oldest first</option>
-            <option value="title">Title A–Z</option>
-            <option value="grade">Grade (low to high)</option>
-          </select>
-          <button type="button" class="chip" id="mine" aria-pressed="false">My activities</button>
-          <button type="button" class="btn btn-ghost btn-compact" id="reload" data-icon="refresh" title="Refresh" aria-label="Refresh the library"><span class="btn-label">Refresh</span></button>
-        </div>
-      </section>
-
-      <div class="results-meta">
-        <span id="count" aria-live="polite"></span>
-        <button type="button" class="btn btn-ghost" id="reset" hidden>Clear filters</button>
-      </div>
-      <div class="activity-grid" id="grid" aria-busy="true"></div>
-      <div class="load-more"><button type="button" class="btn btn-ghost" id="more" hidden>Show more</button></div>
-    </div>
+  <main>
+    <div class="mark">AISA</div>
+    <h1>The Activity Hub has moved</h1>
+    <p>Taking you there… If nothing happens, <a id="go" href="https://aisa-activity-hub.pages.dev/library.html">open the Activity Hub</a>.</p>
   </main>
+  <script>document.getElementById('go').href = 'https://aisa-activity-hub.pages.dev/library.html' + location.search + location.hash;</script>
 </body>
 </html>
